@@ -1,0 +1,234 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------------------------------------------------------------------------
+   Kumtru brand tokens.
+   Every colour used in the app comes from here as a `*-kumtru-*` utility class
+   (bg-kumtru-navy, text-kumtru-slate-500, border-kumtru-hairline, ...).
+   No raw hex belongs in a component.
+   --------------------------------------------------------------------------- */
+@theme {
+  --font-display: var(--font-space-grotesk), "Inter", ui-sans-serif, sans-serif;
+  --font-body: var(--font-inter), -apple-system, ui-sans-serif, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), "SFMono-Regular", ui-monospace, monospace;
+  --font-sans: var(--font-inter), -apple-system, ui-sans-serif, sans-serif;
+
+  /* Core brand */
+  --color-kumtru-navy: #0d1420;
+  --color-kumtru-navy-deep: #080d16;
+  --color-kumtru-charcoal: #101725;
+  --color-kumtru-blue: #4552d6;
+  --color-kumtru-blue-soft: #edeffc;
+  --color-kumtru-cyan: #159768;
+  --color-kumtru-cyan-soft: #e5f5ee;
+  --color-kumtru-gold: #b9791f;
+  --color-kumtru-gold-soft: #fbf0dd;
+
+  /* Neutrals */
+  --color-kumtru-gray: #9aa5b8;
+  --color-kumtru-hairline: #e5e9f0;
+  --color-kumtru-slate-50: #f5f7fa;
+  --color-kumtru-slate-100: #eef1f5;
+  --color-kumtru-slate-200: #e5e9f0;
+  --color-kumtru-slate-300: #cbd3e0;
+  --color-kumtru-slate-400: #9aa5b8;
+  --color-kumtru-slate-500: #6b7688;
+  --color-kumtru-slate-600: #4c5568;
+  --color-kumtru-slate-700: #384154;
+  --color-kumtru-slate-800: #232b3c;
+  --color-kumtru-slate-900: #101725;
+
+  /* Semantic states — each has a soft surface and an on-soft foreground */
+  --color-kumtru-success: #159768;
+  --color-kumtru-success-soft: #e5f5ee;
+  --color-kumtru-success-on-soft: #0c6b49;
+  --color-kumtru-info: #4552d6;
+  --color-kumtru-info-soft: #edeffc;
+  --color-kumtru-info-on-soft: #3540ad;
+  --color-kumtru-warning: #b9791f;
+  --color-kumtru-warning-soft: #fbf0dd;
+  --color-kumtru-warning-on-soft: #7a4e12;
+  --color-kumtru-risk: #c0392e;
+  --color-kumtru-risk-soft: #fbeae8;
+  --color-kumtru-risk-on-soft: #9c2b22;
+  --color-kumtru-neutral: #9aa5b8;
+  --color-kumtru-neutral-soft: #eef1f5;
+  --color-kumtru-neutral-on-soft: #4c5568;
+
+  /* Radii + motion, mirrored from the brand guide */
+  --radius-kumtru-sm: 8px;
+  --radius-kumtru-md: 12px;
+  --radius-kumtru-lg: 20px;
+
+  --animate-duration-fast: 0.15s;
+  --animate-duration-standard: 0.25s;
+  --animate-duration-trust: 0.4s;
+}
+
+/* ---------------------------------------------------------------------------
+   shadcn/ui surface variables, mapped onto the brand palette.
+   --------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    --background: #f5f7fa;
+    --foreground: #101725;
+    --card: #ffffff;
+    --card-foreground: #101725;
+    --popover: #ffffff;
+    --popover-foreground: #101725;
+    --primary: #4552d6;
+    --primary-foreground: #ffffff;
+    --secondary: #eef1f5;
+    --secondary-foreground: #232b3c;
+    --muted: #eef1f5;
+    --muted-foreground: #6b7688;
+    --accent: #edeffc;
+    --accent-foreground: #3540ad;
+    --destructive: #c0392e;
+    --destructive-foreground: #ffffff;
+    --border: #e5e9f0;
+    --input: #e5e9f0;
+    --ring: #4552d6;
+
+    --chart-1: #4552d6;
+    --chart-2: #159768;
+    --chart-3: #b9791f;
+    --chart-4: #6b7688;
+    --chart-5: #c0392e;
+
+    --sidebar: #ffffff;
+    --sidebar-foreground: #101725;
+    --sidebar-primary: #4552d6;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #edeffc;
+    --sidebar-accent-foreground: #3540ad;
+    --sidebar-border: #e5e9f0;
+    --sidebar-ring: #4552d6;
+  }
+
+  .dark {
+    --background: #080d16;
+    --foreground: #eef1f5;
+    --card: #101725;
+    --card-foreground: #eef1f5;
+    --popover: #101725;
+    --popover-foreground: #eef1f5;
+    --primary: #7c86e8;
+    --primary-foreground: #080d16;
+    --secondary: #1b2333;
+    --secondary-foreground: #eef1f5;
+    --muted: #1b2333;
+    --muted-foreground: #9aa5b8;
+    --accent: #232b3c;
+    --accent-foreground: #c3c9f6;
+    --destructive: #e2665a;
+    --destructive-foreground: #080d16;
+    --border: #232b3c;
+    --input: #2b3446;
+    --ring: #7c86e8;
+
+    --chart-1: #7c86e8;
+    --chart-2: #3fbb8c;
+    --chart-3: #d9a44f;
+    --chart-4: #9aa5b8;
+    --chart-5: #e2665a;
+
+    --sidebar: #0d1420;
+    --sidebar-foreground: #eef1f5;
+    --sidebar-primary: #7c86e8;
+    --sidebar-primary-foreground: #080d16;
+    --sidebar-accent: #1b2333;
+    --sidebar-accent-foreground: #c3c9f6;
+    --sidebar-border: #232b3c;
+    --sidebar-ring: #7c86e8;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Mobile-first: no rubber-band overscroll behind the sticky tab bar. */
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    @apply bg-background font-body text-foreground antialiased;
+    /* The grey tap flash reads as a rendering bug on Android; :focus-visible
+       carries the affordance instead. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Removes the 300ms tap delay on the shell's interactive elements. */
+  a,
+  button,
+  [role="switch"] {
+    touch-action: manipulation;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
+  }
+
+  :focus-visible {
+    @apply rounded-[4px] outline-2 outline-offset-2 outline-kumtru-blue;
+  }
+}
+
+/* App-level utilities */
+@utility trade-code {
+  @apply font-mono tracking-tight tabular-nums;
+}
+
+@utility surface-card {
+  @apply rounded-kumtru-md border border-border bg-card;
+}
