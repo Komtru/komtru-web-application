@@ -4,7 +4,7 @@
   "private": true,
   "description": "Kumtru web UI — trade protection and trust infrastructure",
   "scripts": {
-    "dev": "next dev -p 3100 --turbopack",
+    "dev": "next dev -p 5501 --turbopack",
     "build": "next build --turbopack",
     "start:prod": "next start -p 3100",
     "start": "pm2 start ecosystem.config.json --only kumtru-ui && pm2 save",
@@ -50,6 +50,7 @@
     "react-google-recaptcha": "^3.1.0",
     "react-phone-number-input": "^3.4.17",
     "recharts": "^3.10.1",
+    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
     "use-debounce": "^10.1.1",

@@ -13,29 +13,29 @@ import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { Spinner } from "@/components/ui/spinner";
 import { toErrorMessage } from "@/helpers/errors";
 import { useCustomToast } from "@/hooks/useCustomToast";
+import { PASSWORD_MIN_LENGTH } from "@/interfaces/auth";
 import { useResetPassword } from "@/services/auth.services";
+import { clearPersistedSession } from "@/store/auth.store";
 
 interface ResetFormValues {
-  password: string;
+  newPassword: string;
   confirmPassword: string;
 }
 
+/** Length only, matching the API. It owns the breach and reuse checks. */
 const ResetPasswordSchema = Yup.object({
-  password: Yup.string()
-    .min(10, "Use at least 10 characters.")
-    .matches(/[A-Z]/, "Include an uppercase letter.")
-    .matches(/[a-z]/, "Include a lowercase letter.")
-    .matches(/\d/, "Include a number.")
+  newPassword: Yup.string()
+    .min(PASSWORD_MIN_LENGTH, `Use at least ${PASSWORD_MIN_LENGTH} characters.`)
     .required("Password is required."),
   confirmPassword: Yup.string()
-    .oneOf([Yup.ref("password")], "Passwords do not match.")
+    .oneOf([Yup.ref("newPassword")], "Passwords do not match.")
     .required("Confirm your password."),
 });
 
 function ResetPassword() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const resetToken = searchParams.get("token") ?? "";
   const { showToast } = useCustomToast();
   const { mutateAsync: resetPassword } = useResetPassword();
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +47,15 @@ function ResetPassword() {
     setError(null);
 
     try {
-      await resetPassword({ token, password: values.password });
+      await resetPassword({ resetToken, newPassword: values.newPassword });
+
+      // A reset revokes every session server-side. Clearing the local copy keeps
+      // this tab from holding tokens the API has already forgotten.
+      clearPersistedSession();
+
       showToast({
         title: "Password updated",
-        description: "Sign in with your new password.",
+        description: "You've been signed out everywhere. Sign in with the new one.",
         type: "success",
       });
       router.replace("/auth/login");
@@ -63,12 +68,12 @@ function ResetPassword() {
     }
   }
 
-  if (!token) {
+  if (!resetToken) {
     return (
       <div>
         <AuthHeading
           title="This reset link is incomplete"
-          description="Reset links can only be opened from the email we sent. Request a fresh one to continue."
+          description="Reset links can only be opened from the message we sent. Request a fresh one to continue."
         />
         <Button asChild size="xl" className="w-full">
           <Link href="/auth/forgot-password">Request a new link</Link>
@@ -85,7 +90,7 @@ function ResetPassword() {
       />
 
       <Formik<ResetFormValues>
-        initialValues={{ password: "", confirmPassword: "" }}
+        initialValues={{ newPassword: "", confirmPassword: "" }}
         validationSchema={ResetPasswordSchema}
         onSubmit={handleSubmit}
       >
@@ -93,14 +98,16 @@ function ResetPassword() {
           <Form className="space-y-4">
             <div>
               <Field
-                name="password"
+                name="newPassword"
                 type="password"
                 as={FloatingLabelInput}
                 label="New password"
+                autoComplete="new-password"
+                hint="At least 10 characters."
                 required
               />
               <ErrorMessage
-                name="password"
+                name="newPassword"
                 component="span"
                 className="mt-1 block text-xs text-kumtru-risk"
               />
@@ -112,6 +119,7 @@ function ResetPassword() {
                 type="password"
                 as={FloatingLabelInput}
                 label="Confirm new password"
+                autoComplete="new-password"
                 required
               />
               <ErrorMessage

@@ -1,5 +1,3 @@
-import type { RequestError } from "@/interfaces/IAxios";
-
 const GENERIC_MESSAGE = "Something went wrong. Please try again.";
 
 function hasMessage(value: unknown): value is { message: string } {
@@ -21,14 +19,11 @@ export function toErrorMessage(error: unknown, fallback = GENERIC_MESSAGE): stri
   return fallback;
 }
 
-/** Field-level validation errors, when the API returns them. */
-export function toFieldErrors(error: unknown): Record<string, string> {
-  if (typeof error !== "object" || error === null) return {};
-
-  const errors = (error as RequestError).errors;
-  if (!errors) return {};
-
-  return Object.fromEntries(
-    Object.entries(errors).map(([field, messages]) => [field, messages[0] ?? GENERIC_MESSAGE]),
-  );
-}
+/**
+ * There is no `toFieldErrors` here on purpose.
+ *
+ * The API returns one human-readable `message` per rejection, never a
+ * field-keyed map — its validation layer converts the first Joi failure into a
+ * single 400. A helper that pretended to unpack per-field errors would only ever
+ * return an empty object.
+ */

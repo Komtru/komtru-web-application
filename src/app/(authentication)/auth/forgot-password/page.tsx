@@ -13,29 +13,28 @@ import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { Spinner } from "@/components/ui/spinner";
 import { toErrorMessage } from "@/helpers/errors";
 import { useCustomToast } from "@/hooks/useCustomToast";
-import type { ForgotPasswordPayloadInterface } from "@/interfaces/auth";
+import type { ForgotPasswordPayload } from "@/interfaces/auth";
 import { useForgotPassword } from "@/services/auth.services";
 
 const ForgotPasswordSchema = Yup.object({
-  email: Yup.string().email("Enter a valid email address.").required("Email is required."),
+  identifier: Yup.string().trim().required("Enter your email, phone number or username."),
 });
 
 export default function ForgotPasswordPage() {
   const { showToast } = useCustomToast();
   const { mutateAsync: forgotPassword } = useForgotPassword();
   const [error, setError] = useState<string | null>(null);
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit(
-    values: ForgotPasswordPayloadInterface,
-    { setSubmitting }: FormikHelpers<ForgotPasswordPayloadInterface>,
+    values: ForgotPasswordPayload,
+    { setSubmitting }: FormikHelpers<ForgotPasswordPayload>,
   ) {
     setError(null);
 
     try {
-      await forgotPassword(values);
-      setSentTo(values.email);
-      showToast({ title: "Reset link sent", description: values.email, type: "success" });
+      await forgotPassword({ identifier: values.identifier.trim() });
+      setSubmitted(true);
     } catch (err) {
       const message = toErrorMessage(err, "We couldn't send that reset link. Try again shortly.");
       setError(message);
@@ -45,16 +44,19 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  if (sentTo) {
+  if (submitted) {
     return (
       <div className="text-center">
         <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-kumtru-success-soft">
           <MailCheck className="size-6 text-kumtru-success-on-soft" aria-hidden="true" />
         </div>
-        <h2 className="mt-4 text-2xl font-semibold">Check your inbox</h2>
+        <h2 className="mt-4 text-2xl font-semibold">Check your messages</h2>
+        {/* Deliberately says nothing about whether that account exists — the API
+            answers identically either way, and copy that implied otherwise would
+            hand back the answer the endpoint withholds. */}
         <p className="mt-2 text-[13px] leading-relaxed text-kumtru-slate-500">
-          If an account exists for <b className="font-semibold text-foreground">{sentTo}</b>, a
-          reset link is on its way. The link expires in 30 minutes.
+          If that account exists, reset instructions are on their way to its verified contact
+          channel.
         </p>
         <Button asChild variant="secondary" size="xl" className="mt-6 w-full">
           <Link href="/auth/login">Back to sign in</Link>
@@ -67,20 +69,27 @@ export default function ForgotPasswordPage() {
     <div>
       <AuthHeading
         title="Reset your password"
-        description="Tell us the email on your account and we'll send a reset link."
+        description="Tell us how you sign in and we'll send instructions to your verified contact channel."
       />
 
-      <Formik<ForgotPasswordPayloadInterface>
-        initialValues={{ email: "" }}
+      <Formik<ForgotPasswordPayload>
+        initialValues={{ identifier: "" }}
         validationSchema={ForgotPasswordSchema}
         onSubmit={handleSubmit}
       >
         {({ isSubmitting }) => (
           <Form className="space-y-5">
             <div>
-              <Field name="email" type="email" as={FloatingLabelInput} label="Email" required />
+              <Field
+                name="identifier"
+                as={FloatingLabelInput}
+                label="Email, phone or username"
+                autoComplete="username"
+                autoCapitalize="none"
+                required
+              />
               <ErrorMessage
-                name="email"
+                name="identifier"
                 component="span"
                 className="mt-1 block text-xs text-kumtru-risk"
               />
@@ -89,7 +98,7 @@ export default function ForgotPasswordPage() {
             <FormError message={error} />
 
             <Button type="submit" size="xl" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? <Spinner /> : "Send reset link"}
+              {isSubmitting ? <Spinner /> : "Send reset instructions"}
             </Button>
 
             <p className="text-center text-xs text-kumtru-slate-500">

@@ -32,21 +32,40 @@ export interface IPostMultipart {
   headers?: RequestHeaders;
 }
 
-/** Standard success envelope returned by the Kumtru API. */
+/**
+ * Standard success envelope: `{ status: 'success', data }`.
+ *
+ * `message` is optional because several endpoints deliberately answer with a
+ * message and no data (`POST /auth/password/forgot`) or data and no message
+ * (`POST /auth/login`).
+ */
 export interface IResponse<D = unknown> {
-  status: "success" | "error";
-  message: string;
+  status: "success";
+  message?: string;
   data: D;
 }
 
-/** Standard error envelope. Callers read `err.message`. */
+/** Standard error envelope: `{ status: 'error', code, message }`. Callers read `message`. */
 export interface RequestError {
   status?: "error";
   code: number;
   message: string;
-  errorCode?: string;
+  /** Development only. */
   stack?: string;
-  errors?: Record<string, string[]>;
+  /**
+   * Some 4xx bodies carry a `data` block with the detail needed to continue —
+   * the social-link challenge (409) is the one that matters today.
+   */
+  data?: Record<string, unknown>;
+}
+
+/** Standard pagination envelope for every list endpoint. */
+export interface QueryResult<T> {
+  results: T[];
+  page: number;
+  limit: number;
+  totalPages: number;
+  totalResults: number;
 }
 
 /** A downloaded file plus the filename parsed from `content-disposition`. */

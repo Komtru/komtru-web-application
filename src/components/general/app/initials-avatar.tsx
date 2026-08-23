@@ -4,7 +4,18 @@ const sizeMap = {
   sm: "size-5 text-[9px]",
   md: "size-[34px] text-xs",
   lg: "size-11 text-[15px]",
+  xl: "size-16 text-lg",
 } as const;
+
+/** The same scale in pixels, for `next/image`, which needs a number. */
+export const AVATAR_PIXELS: Record<keyof typeof sizeMap, number> = {
+  sm: 20,
+  md: 34,
+  lg: 44,
+  xl: 64,
+};
+
+export type AvatarSize = keyof typeof sizeMap;
 
 const toneMap = {
   info: "bg-kumtru-info-soft text-kumtru-info-on-soft",

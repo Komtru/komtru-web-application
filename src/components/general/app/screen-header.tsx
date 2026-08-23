@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
-import { BrandLockup } from "@/components/general/brand-mark";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,7 +27,7 @@ export function ScreenHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-card px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3",
+        "sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-card px-4 py-3",
         className,
       )}
     >
@@ -49,34 +48,11 @@ export function ScreenHeader({
 }
 
 /**
- * Root-of-tab header: brand lockup (or a plain title) plus a trailing slot.
- * No back button, because a tab root is never pushed onto anything.
+ * There is no `TabHeader` here any more.
+ *
+ * A root-of-tab header used to render the brand and a bell, which is now exactly
+ * what `AppHeader` shows at the top of the shell — so every tab drew a second
+ * bar directly under the first. A tab root gets its title as an `<h1>` in the
+ * page body instead; `ScreenHeader` above stays, because a pushed screen still
+ * needs a way back up the stack.
  */
-export function TabHeader({
-  title,
-  subtitle,
-  trailing,
-}: {
-  title?: string;
-  subtitle?: string;
-  trailing?: ReactNode;
-}) {
-  return (
-    <header className="flex items-center justify-between gap-2 bg-card px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2.5">
-      <div className="min-w-0">
-        {title ? (
-          <>
-            <p className="truncate text-sm font-semibold">{title}</p>
-            {subtitle ? (
-              <p className="truncate text-[10.5px] text-kumtru-slate-500">{subtitle}</p>
-            ) : null}
-          </>
-        ) : (
-          <BrandLockup className="text-sm" />
-        )}
-      </div>
-
-      {trailing ? <div className="flex shrink-0 items-center gap-1">{trailing}</div> : null}
-    </header>
-  );
-}

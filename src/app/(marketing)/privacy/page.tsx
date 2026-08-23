@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Kumtru collects, uses and protects your personal data.",
+  description: "How Komtru collects, uses and protects your personal data.",
 };
 
 const sections = [
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
       <p className="mt-2 text-xs text-kumtru-slate-400">Last updated 20 August 2026</p>
 
       <p className="mt-8 text-sm leading-relaxed text-kumtru-slate-300">
-        This policy explains what Kumtru does with your data. It is written to be read, not to be
+        This policy explains what Komtru does with your data. It is written to be read, not to be
         skipped.
       </p>
 

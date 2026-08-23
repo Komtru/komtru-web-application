@@ -57,7 +57,7 @@ export function InstallPrompt() {
       <BrandMark className="mt-0.5 size-5 shrink-0 text-kumtru-cyan" />
 
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold">Install Kumtru</p>
+        <p className="text-[13px] font-semibold">Install Komtru</p>
         <p className="mt-1 text-[11px] leading-relaxed text-kumtru-slate-300">
           Open your trades from your home screen instead of a link someone sent you.
         </p>

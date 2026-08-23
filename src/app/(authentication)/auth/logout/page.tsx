@@ -4,12 +4,13 @@ import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Spinner } from "@/components/ui/spinner";
+import { clearMfaChallenge } from "@/helpers/auth";
 import { useCustomToast } from "@/hooks/useCustomToast";
 import { getQueryClient } from "@/lib/react-query";
 import { useLogout } from "@/services/auth.services";
 import { clearPersistedSession, useAuthStore } from "@/store/auth.store";
 
-const REVOKED_MESSAGE = "Your session ended for security reasons. Please sign in again.";
+const ENDED_MESSAGE = "Your session ended. Please sign in again.";
 const NORMAL_MESSAGE = "You're signed out.";
 
 function Logout() {
@@ -24,28 +25,31 @@ function Logout() {
     if (handled.current) return;
     handled.current = true;
 
-    const revoked = code === "access_revoked";
+    // The facade sends us here when a refresh has already failed. Calling
+    // `/auth/logout` with a token the API has just rejected would only 401 again.
+    const sessionAlreadyOver = code === "session_ended";
 
     async function signOut() {
-      const refreshToken = useAuthStore.getState().refresh?.token;
+      const refreshToken = useAuthStore.getState().refreshToken;
 
       // Best-effort server-side revocation. A failure here (already-revoked
       // token, offline) must never strand the user in a signed-in shell.
-      if (refreshToken && !revoked) {
+      if (!sessionAlreadyOver) {
         try {
-          await logout({ refreshToken });
+          await logout({ refreshToken, allDevices: false });
         } catch {
           // Intentionally ignored — the local session is cleared regardless.
         }
       }
 
       clearPersistedSession();
+      clearMfaChallenge();
       getQueryClient().clear();
 
       showToast({
-        title: revoked ? "Session ended" : "Signed out",
-        description: revoked ? REVOKED_MESSAGE : NORMAL_MESSAGE,
-        type: revoked ? "warning" : "info",
+        title: sessionAlreadyOver ? "Session ended" : "Signed out",
+        description: sessionAlreadyOver ? ENDED_MESSAGE : NORMAL_MESSAGE,
+        type: sessionAlreadyOver ? "warning" : "info",
       });
 
       router.replace("/auth/login");

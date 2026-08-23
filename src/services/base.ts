@@ -17,7 +17,7 @@ import type {
   QueryParams,
   RequestError,
 } from "@/interfaces/IAxios";
-import type { Access } from "@/interfaces/auth";
+import type { SessionTokens } from "@/interfaces/auth";
 import { useAuthStore } from "@/store/auth.store";
 
 /**
@@ -30,33 +30,41 @@ import { useAuthStore } from "@/store/auth.store";
 const API_PREFIX = "/api/";
 
 /**
- * Auth failures are detected by HTTP status plus a stable machine code — never
- * by matching human-readable messages, which change without notice.
+ * A 401 is the only signal there is.
+ *
+ * The API answers every credential failure — unknown token, replayed, revoked,
+ * expired, suspended user — with an identical `401 { status, code, message }`,
+ * on purpose: a distinguishable "REUSE_DETECTED" would tell an attacker their
+ * stolen token was the one that tripped the alarm. So the client cannot tell
+ * "expired, refresh it" from "revoked, give up" by reading the body, and does
+ * not try. It attempts exactly one refresh; if that also 401s, the session is
+ * over. A 403 is an authorisation answer about a valid session and never
+ * triggers a refresh.
  */
-export const AUTH_ERROR_CODES = {
-  ACCESS_TOKEN_EXPIRED: "ACCESS_TOKEN_EXPIRED",
-  ACCESS_TOKEN_REVOKED: "ACCESS_TOKEN_REVOKED",
-  REFRESH_TOKEN_EXPIRED: "REFRESH_TOKEN_EXPIRED",
-  REFRESH_TOKEN_REVOKED: "REFRESH_TOKEN_REVOKED",
-  SESSION_TERMINATED: "SESSION_TERMINATED",
-  ACCOUNT_SUSPENDED: "ACCOUNT_SUSPENDED",
-} as const;
+const UNAUTHORIZED = 401;
 
-const EXPIRED_CODES: readonly string[] = [AUTH_ERROR_CODES.ACCESS_TOKEN_EXPIRED];
-
-const REVOKED_CODES: readonly string[] = [
-  AUTH_ERROR_CODES.ACCESS_TOKEN_REVOKED,
-  AUTH_ERROR_CODES.REFRESH_TOKEN_EXPIRED,
-  AUTH_ERROR_CODES.REFRESH_TOKEN_REVOKED,
-  AUTH_ERROR_CODES.SESSION_TERMINATED,
-  AUTH_ERROR_CODES.ACCOUNT_SUSPENDED,
+/**
+ * Endpoints that must never trigger a refresh-or-logout cycle themselves.
+ *
+ * Everything unauthenticated is here as well as the obvious loops: a 401 from
+ * `POST /auth/login` is a wrong password, and bouncing the visitor to the
+ * logout screen for mistyping one would be absurd.
+ */
+const AUTH_BYPASS_PATHS = [
+  "auth/refresh",
+  "auth/login",
+  "auth/logout",
+  "auth/register",
+  "auth/verify-otp",
+  "auth/mfa/verify",
+  "auth/password/forgot",
+  "auth/password/reset",
+  "auth/social/",
+  "auth/staff/",
 ];
 
-/** Endpoints that must never trigger a refresh-or-logout cycle themselves. */
-const AUTH_BYPASS_PATHS = ["auth/refresh-tokens", "auth/login", "auth/logout"];
-
-const REFRESH_ENDPOINT = "auth/refresh-tokens";
-const LOGOUT_URL = "/auth/logout?code=access_revoked";
+const REFRESH_ENDPOINT = "auth/refresh";
+const LOGOUT_URL = "/auth/logout?code=session_ended";
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -79,20 +87,6 @@ function withQuery(url: string, query?: QueryParams): string {
 function isBypassed(url?: string): boolean {
   if (!url) return false;
   return AUTH_BYPASS_PATHS.some((path) => url.includes(path));
-}
-
-function errorCodeOf(error: AxiosError<RequestError>): string | undefined {
-  return error.response?.data?.errorCode;
-}
-
-function isExpiredAccess(error: AxiosError<RequestError>): boolean {
-  return error.response?.status === 401 && EXPIRED_CODES.includes(errorCodeOf(error) ?? "");
-}
-
-function isRevokedAccess(error: AxiosError<RequestError>): boolean {
-  const status = error.response?.status;
-  if (status !== 401 && status !== 403) return false;
-  return REVOKED_CODES.includes(errorCodeOf(error) ?? "");
 }
 
 function forceLogout(): void {
@@ -144,22 +138,29 @@ function flushQueue(error: unknown, token: string | null): void {
 }
 
 async function performRefresh(): Promise<string> {
-  const refreshToken = useAuthStore.getState().refresh?.token;
+  const refreshToken = useAuthStore.getState().refreshToken;
 
   if (!refreshToken) {
     throw new Error("No refresh token available.");
   }
 
-  const response = await refreshClient.post<{ data: Access }>(REFRESH_ENDPOINT, { refreshToken });
+  // Sent in the body, not relied on as a cookie: the API's refresh cookie is
+  // scoped to `/v1/auth` on the API's own origin, and this app calls a
+  // same-origin `/api` proxy, so the browser would never attach it.
+  const response = await refreshClient.post<{ data: SessionTokens }>(REFRESH_ENDPOINT, {
+    refreshToken,
+  });
   const tokens = response.data?.data;
 
-  if (!tokens?.access?.token) {
+  if (!tokens?.accessToken) {
     throw new Error("Refresh response did not contain an access token.");
   }
 
-  useAuthStore.getState().setAccess(tokens);
+  // The API rotates the refresh token on every use and treats a replay as theft,
+  // so the new one must be stored, not just the access token.
+  useAuthStore.getState().setTokens(tokens);
 
-  return tokens.access.token;
+  return tokens.accessToken;
 }
 
 /**
@@ -202,7 +203,7 @@ function attachAuthorization(config: InternalAxiosRequestConfig): InternalAxiosR
   if (typeof window === "undefined") return config;
   if (config.headers?.Authorization) return config;
 
-  const token = useAuthStore.getState().access?.token;
+  const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -219,13 +220,8 @@ async function handleResponseError(error: AxiosError<RequestError>): Promise<Axi
   const originalRequest = error.config as RetriableRequestConfig | undefined;
   const envelope = error.response?.data;
 
-  if (isRevokedAccess(error) && !isBypassed(originalRequest?.url)) {
-    forceLogout();
-    return Promise.reject(envelope ?? error);
-  }
-
   if (
-    isExpiredAccess(error) &&
+    error.response?.status === UNAUTHORIZED &&
     originalRequest &&
     !originalRequest._retry &&
     !isBypassed(originalRequest.url)
@@ -237,6 +233,8 @@ async function handleResponseError(error: AxiosError<RequestError>): Promise<Axi
       originalRequest.headers.Authorization = `Bearer ${token}`;
       return await axios.request(originalRequest);
     } catch (refreshError) {
+      // One attempt, then the session is over. The API gives no way to tell an
+      // expired token from a revoked one, so a second try would only be a guess.
       forceLogout();
       return Promise.reject(envelope ?? refreshError);
     }

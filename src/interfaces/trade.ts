@@ -1,4 +1,4 @@
-import type { QueryResult } from "@/interfaces/auth";
+import type { QueryResult } from "@/interfaces/IAxios";
 
 /* -------------------------------------------------------------------------- */
 /* Enums — the trade lifecycle is a state machine; these are its states.       */
