@@ -48,7 +48,7 @@ const protections = [
   },
   {
     title: "Codes, not links",
-    body: "Every trade has a code the other party looks up themselves inside Kumtru. Nothing depends on a link someone sent you.",
+    body: "Every trade has a code the other party looks up themselves inside Komtru. Nothing depends on a link someone sent you.",
   },
 ];
 
@@ -83,7 +83,7 @@ export function LandingPage() {
             transition={{ duration: 0.4, delay: 0.1 }}
             className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-kumtru-slate-300"
           >
-            Kumtru holds the payment while the deal plays out. Terms agreed first, funds protected
+            Komtru holds the payment while the deal plays out. Terms agreed first, funds protected
             in the middle, released only when the agreement is met.
           </motion.p>
 
@@ -118,7 +118,7 @@ export function LandingPage() {
       {/* How it works */}
       <section id="how-it-works" className="border-t border-white/10 px-6 py-20">
         <div className="mx-auto max-w-5xl">
-          <h2 className="text-2xl font-semibold sm:text-3xl">How a Kumtru trade runs</h2>
+          <h2 className="text-2xl font-semibold sm:text-3xl">How a Komtru trade runs</h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-kumtru-slate-300">
             Four states, in order, with a named party responsible for each. Nobody can skip a step —
             not the buyer, not the seller, not us.

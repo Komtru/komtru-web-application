@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms governing your use of Kumtru trade protection.",
+  description: "The terms governing your use of Komtru trade protection.",
 };
 
 const sections = [
   {
-    heading: "What Kumtru does",
-    body: "Kumtru provides trade protection: we record the terms both parties agree, hold the buyer's payment while the trade runs, and release it according to those terms. We are not a party to your trade and we do not guarantee the quality of any item or service.",
+    heading: "What Komtru does",
+    body: "Komtru provides trade protection: we record the terms both parties agree, hold the buyer's payment while the trade runs, and release it according to those terms. We are not a party to your trade and we do not guarantee the quality of any item or service.",
   },
   {
     heading: "Your account",
@@ -32,11 +32,11 @@ const sections = [
   },
   {
     heading: "Prohibited use",
-    body: "No illegal goods or services, no sanctioned parties, no money laundering, no using Kumtru to lend credibility to a trade you do not intend to honour. We may suspend an account and freeze protected funds where we reasonably suspect fraud.",
+    body: "No illegal goods or services, no sanctioned parties, no money laundering, no using Komtru to lend credibility to a trade you do not intend to honour. We may suspend an account and freeze protected funds where we reasonably suspect fraud.",
   },
   {
     heading: "Safety",
-    body: "Kumtru will never ask you to pay outside an active trade, share a one-time code, or send money to a personal account. Requests of that kind are fraud, regardless of who appears to be asking.",
+    body: "Komtru will never ask you to pay outside an active trade, share a one-time code, or send money to a personal account. Requests of that kind are fraud, regardless of who appears to be asking.",
   },
   {
     heading: "Liability",
@@ -51,7 +51,7 @@ export default function TermsPage() {
       <p className="mt-2 text-xs text-kumtru-slate-400">Last updated 20 August 2026</p>
 
       <p className="mt-8 text-sm leading-relaxed text-kumtru-slate-300">
-        By creating a Kumtru account or taking part in a Kumtru trade, you agree to these terms.
+        By creating a Komtru account or taking part in a Komtru trade, you agree to these terms.
       </p>
 
       <ol className="mt-10 space-y-8">

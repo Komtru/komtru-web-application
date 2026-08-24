@@ -72,10 +72,10 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 
         <div className="mx-auto mt-10 flex max-w-5xl flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6">
           <p className="text-xs text-kumtru-slate-400">
-            © {new Date().getFullYear()} Kumtru. All rights reserved.
+            © {new Date().getFullYear()} Komtru. All rights reserved.
           </p>
           <p className="max-w-md text-[11px] leading-relaxed text-kumtru-slate-500">
-            Kumtru will never ask you to pay outside an active trade, share a one-time code, or send
+            Komtru will never ask you to pay outside an active trade, share a one-time code, or send
             money to a personal account.
           </p>
         </div>

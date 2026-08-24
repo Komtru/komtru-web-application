@@ -16,11 +16,11 @@ const appUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: "Kumtru — Trade with anyone. Trust the process.",
-    template: "%s · Kumtru",
+    default: "Komtru — Trade with anyone. Trust the process.",
+    template: "%s · Komtru",
   },
   description:
-    "Kumtru protects both sides of a deal: agree terms up front, hold the payment safely, and release it only when the agreement is met.",
+    "Komtru protects both sides of a deal: agree terms up front, hold the payment safely, and release it only when the agreement is met.",
   keywords: [
     "escrow",
     "trade protection",
@@ -28,15 +28,15 @@ export const metadata: Metadata = {
     "trust passport",
     "peer to peer payments",
     "Nigeria escrow",
-    "Kumtru",
+    "Komtru",
   ],
-  applicationName: "Kumtru",
+  applicationName: "Komtru",
   manifest: "/site.webmanifest",
   // Installed as a PWA, opened from the home screen rather than from a link —
   // which is the same habit that keeps someone off a spoofed "your trade" URL.
   appleWebApp: {
     capable: true,
-    title: "Kumtru",
+    title: "Komtru",
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
@@ -50,8 +50,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Kumtru",
-    title: "Kumtru — Trade with anyone. Trust the process.",
+    siteName: "Komtru",
+    title: "Komtru — Trade with anyone. Trust the process.",
     description:
       "Agree the terms, protect the payment, release it when the deal is honoured. Trade protection for buyers and sellers.",
     url: appUrl,
@@ -60,13 +60,13 @@ export const metadata: Metadata = {
         url: new URL("/og-kumtru.png", appUrl).toString(),
         width: 1200,
         height: 630,
-        alt: "Kumtru — trade protection and trust infrastructure",
+        alt: "Komtru — trade protection and trust infrastructure",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kumtru — Trade with anyone. Trust the process.",
+    title: "Komtru — Trade with anyone. Trust the process.",
     description: "Agree the terms, protect the payment, release it when the deal is honoured.",
     images: [new URL("/og-kumtru.png", appUrl).toString()],
   },
@@ -100,7 +100,8 @@ export default function RootLayout({
           {/* Consumed as a CSS value, so it reads the same brand token as every class does. */}
           <NextTopLoader color="var(--color-kumtru-blue)" showSpinner={false} height={2} />
           <QueryProvider>{children}</QueryProvider>
-          <Toaster position="top-center" />
+          {/* Position is the Toaster's own call: it depends on viewport width. */}
+          <Toaster />
           <ServiceWorkerRegistrar />
         </ThemeProvider>
       </body>

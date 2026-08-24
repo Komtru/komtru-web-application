@@ -1,53 +1,79 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import type { IAuthStore } from "@/interfaces/auth";
+import type { AuthStore, MeResult, SessionResult, SessionTokens } from "@/interfaces/auth";
 
 const STORE_NAME = "kumtru-auth-store";
 
-export const useAuthStore = create<IAuthStore>()(
+/**
+ * The session, persisted to `localStorage`.
+ *
+ * The API also sets an HttpOnly refresh cookie, but it is scoped to `/v1/auth`
+ * on the API's own origin — this app talks to a same-origin `/api` proxy, so
+ * that cookie is never sent back. The refresh token is therefore kept here and
+ * passed in the body, which is the mobile-client path the API already supports.
+ */
+export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
-      access: undefined,
-      refresh: undefined,
-      auth: null,
+      accessToken: undefined,
+      refreshToken: undefined,
+      accessExpiresAt: undefined,
       user: null,
+      me: null,
+      nextStep: null,
       hydrated: false,
 
-      initUserStore: ({ auth, user, tokens }) =>
+      startSession: ({ accessToken, refreshToken, expiresIn, user, nextStep }: SessionResult) =>
         set({
-          auth,
+          accessToken,
+          refreshToken,
+          accessExpiresAt: Date.now() + expiresIn * 1000,
           user,
-          access: tokens.access,
-          refresh: tokens.refresh,
+          nextStep,
         }),
 
-      setAccess: (tokens) => set({ access: tokens.access, refresh: tokens.refresh }),
+      // Refresh returns tokens and nothing else, so the user block is left alone
+      // rather than being overwritten with undefined.
+      setTokens: ({ accessToken, refreshToken, expiresIn }: SessionTokens) =>
+        set({ accessToken, refreshToken, accessExpiresAt: Date.now() + expiresIn * 1000 }),
 
-      setAccount: ({ auth, user }) =>
+      setUser: (user) => set({ user }),
+
+      // `GET /me` recomputes `nextStep`, and it is the freshest source of it.
+      setMe: (me: MeResult) =>
         set((state) => ({
-          auth: auth ?? state.auth,
-          user: user ?? state.user,
+          me,
+          nextStep: me.nextStep,
+          user: state.user
+            ? { ...state.user, username: me.username, status: me.status }
+            : state.user,
         })),
+
+      setNextStep: (nextStep) => set({ nextStep }),
 
       setHydrated: () => set({ hydrated: true }),
 
-      logoutAccount: () =>
+      logout: () =>
         set({
-          access: undefined,
-          refresh: undefined,
-          auth: null,
+          accessToken: undefined,
+          refreshToken: undefined,
+          accessExpiresAt: undefined,
           user: null,
+          me: null,
+          nextStep: null,
         }),
     }),
     {
       name: STORE_NAME,
       storage: createJSONStorage(() => localStorage),
-      partialize: ({ access, refresh, auth, user }) => ({
-        access,
-        refresh,
-        auth,
+      partialize: ({ accessToken, refreshToken, accessExpiresAt, user, me, nextStep }) => ({
+        accessToken,
+        refreshToken,
+        accessExpiresAt,
         user,
+        me,
+        nextStep,
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(),
     },
@@ -73,7 +99,7 @@ export function waitForHydration(): Promise<void> {
 
 /** Clears the persisted session and every browser storage bucket we own. */
 export function clearPersistedSession(): void {
-  useAuthStore.getState().logoutAccount();
+  useAuthStore.getState().logout();
 
   if (typeof window === "undefined") return;
 

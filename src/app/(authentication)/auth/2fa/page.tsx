@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ErrorMessage, Field, Form, Formik, type FormikHelpers } from "formik";
 import * as Yup from "yup";
 
@@ -10,76 +10,78 @@ import { FormError } from "@/components/forms/form-error";
 import { Button } from "@/components/ui/button";
 import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  HOME_ROUTE,
+  clearMfaChallenge,
+  readMfaChallenge,
+  type PendingMfaChallenge,
+} from "@/helpers/auth";
 import { toErrorMessage } from "@/helpers/errors";
 import { useCustomToast } from "@/hooks/useCustomToast";
-import { TwoFactorMethodEnum } from "@/interfaces/auth";
-import { useResendLogin2FA, useVerifyLogin2FA } from "@/services/auth.services";
+import { isMfaChallenge, type FactorHint, type FactorType } from "@/interfaces/auth";
+import { useMfaVerify } from "@/services/auth.services";
 import { useAuthStore } from "@/store/auth.store";
-
-const RESEND_COOLDOWN_SECONDS = 45;
+import { cn } from "@/lib/utils";
 
 interface ChallengeFormValues {
   code: string;
 }
 
+/** Recovery codes are longer than six digits, so this cannot demand exactly six. */
 const ChallengeSchema = Yup.object({
-  code: Yup.string()
-    .matches(/^\d{6}$/, "Enter the 6-digit code.")
-    .required("Enter the 6-digit code."),
+  code: Yup.string().trim().min(6, "That code is too short.").required("Enter your code."),
 });
 
-function methodCopy(method: string | null) {
-  if (method === TwoFactorMethodEnum.EMAIL) {
-    return "Enter the 6-digit code we emailed you.";
-  }
-  return "Enter the 6-digit code from your authenticator app.";
+const FACTOR_COPY: Record<FactorType, string> = {
+  TOTP: "Enter the current code from your authenticator app.",
+  SMS_OTP: "Enter the code we sent by SMS.",
+  EMAIL_OTP: "Enter the code we emailed you.",
+  PASSKEY: "Use your passkey to continue.",
+  RECOVERY_CODE: "Enter one of your recovery codes.",
+};
+
+function factorLabel(factor: FactorHint): string {
+  return factor.hint || factor.type;
 }
 
-function TwoFactorChallenge() {
+function TwoFactorChallenge({ challenge }: { challenge: PendingMfaChallenge }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const challengeId = searchParams.get("challenge");
-  const email = searchParams.get("email");
-  const method = searchParams.get("method");
-
   const { showToast } = useCustomToast();
-  const { mutateAsync: verify } = useVerifyLogin2FA();
-  const { mutateAsync: resend, isPending: isResending } = useResendLogin2FA();
-  const initUserStore = useAuthStore((state) => state.initUserStore);
+  const { mutateAsync: verify } = useMfaVerify();
+  const startSession = useAuthStore((state) => state.startSession);
 
   const [error, setError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
+  const [factorId, setFactorId] = useState(
+    () => (challenge.factors.find((factor) => factor.isDefault) ?? challenge.factors[0])?.id ?? "",
+  );
 
-  // A challenge cannot be completed without its id — send the user back rather
-  // than showing a form that can only fail.
-  useEffect(() => {
-    if (!challengeId) router.replace("/auth/login");
-  }, [challengeId, router]);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setTimeout(() => setCooldown((seconds) => seconds - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [cooldown]);
+  const selected = challenge.factors.find((factor) => factor.id === factorId);
 
   async function handleSubmit(
     values: ChallengeFormValues,
     { setSubmitting }: FormikHelpers<ChallengeFormValues>,
   ) {
-    if (!challengeId) return;
     setError(null);
 
     try {
-      const result = await verify({ challengeId, code: values.code });
-
-      initUserStore({
-        auth: result.auth,
-        user: result.user,
-        tokens: result.tokens,
+      const result = await verify({
+        mfaToken: challenge.mfaToken,
+        factorId,
+        code: values.code.trim(),
       });
 
+      // The API reuses one response shape for both login legs, so in principle
+      // this branch exists. In practice a completed second factor never asks for
+      // another — treating it as an error is more honest than pretending.
+      if (isMfaChallenge(result)) {
+        setError("That factor could not complete the sign-in. Start again.");
+        return;
+      }
+
+      clearMfaChallenge();
+      startSession(result);
       showToast({ title: "Verified", type: "success" });
-      router.replace("/trades");
+      router.replace(HOME_ROUTE);
     } catch (err) {
       const message = toErrorMessage(err, "That code didn't work. Check it and try again.");
       setError(message);
@@ -89,41 +91,51 @@ function TwoFactorChallenge() {
     }
   }
 
-  async function handleResend() {
-    if (!challengeId || cooldown > 0) return;
-    setError(null);
-
-    try {
-      await resend({ challengeId });
-      setCooldown(RESEND_COOLDOWN_SECONDS);
-      showToast({ title: "New code sent", type: "success" });
-    } catch (err) {
-      const message = toErrorMessage(err, "We couldn't send a new code. Try again shortly.");
-      setError(message);
-      showToast({ title: "Resend failed", description: message, type: "error" });
-    }
-  }
-
-  if (!challengeId) {
-    return <Spinner size="lg" className="mx-auto text-kumtru-blue" />;
-  }
-
   return (
     <div>
       <AuthHeading
         title="Two-step verification"
         description={
           <>
-            {methodCopy(method)}
-            {email ? (
+            {selected
+              ? FACTOR_COPY[selected.type]
+              : "Enter your second factor to finish signing in."}
+            {challenge.identifier ? (
               <>
                 {" "}
-                Signing in as <b className="font-semibold text-foreground">{email}</b>.
+                Signing in as{" "}
+                <b className="font-semibold text-foreground">{challenge.identifier}</b>.
               </>
             ) : null}
           </>
         }
       />
+
+      {challenge.factors.length > 1 ? (
+        <div className="mb-4 space-y-2">
+          <p className="text-[11px] font-semibold tracking-wide text-kumtru-slate-500 uppercase">
+            Verify with
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {challenge.factors.map((factor) => (
+              <button
+                key={factor.id}
+                type="button"
+                onClick={() => setFactorId(factor.id)}
+                aria-pressed={factor.id === factorId}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                  factor.id === factorId
+                    ? "border-kumtru-blue bg-kumtru-blue/10 text-kumtru-blue"
+                    : "border-border text-kumtru-slate-500",
+                )}
+              >
+                {factorLabel(factor)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <Formik<ChallengeFormValues>
         initialValues={{ code: "" }}
@@ -136,12 +148,12 @@ function TwoFactorChallenge() {
               <Field
                 name="code"
                 as={FloatingLabelInput}
-                label="6-digit code"
-                inputMode="numeric"
+                label="Verification code"
+                inputMode={selected?.type === "RECOVERY_CODE" ? "text" : "numeric"}
                 autoComplete="one-time-code"
-                maxLength={6}
+                maxLength={20}
                 required
-                className="font-mono text-lg tracking-[0.3em]"
+                className="font-mono text-lg tracking-[0.2em]"
               />
               <ErrorMessage
                 name="code"
@@ -152,21 +164,21 @@ function TwoFactorChallenge() {
 
             <FormError message={error} />
 
-            <Button type="submit" size="xl" disabled={isSubmitting} className="w-full">
+            <Button type="submit" size="xl" disabled={isSubmitting || !factorId} className="w-full">
               {isSubmitting ? <Spinner /> : "Verify and continue"}
             </Button>
 
-            {method === TwoFactorMethodEnum.EMAIL ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleResend}
-                disabled={isResending || cooldown > 0}
-                className="w-full"
-              >
-                {cooldown > 0 ? `Resend code in ${cooldown}s` : "Send a new code"}
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                clearMfaChallenge();
+                router.replace("/auth/login");
+              }}
+            >
+              Cancel and sign in again
+            </Button>
           </Form>
         )}
       </Formik>
@@ -175,9 +187,19 @@ function TwoFactorChallenge() {
 }
 
 export default function TwoFactorPage() {
-  return (
-    <Suspense fallback={<Spinner size="lg" className="mx-auto text-kumtru-blue" />}>
-      <TwoFactorChallenge />
-    </Suspense>
-  );
+  const router = useRouter();
+  const [challenge, setChallenge] = useState<PendingMfaChallenge | null | undefined>(undefined);
+
+  // Read after mount: `sessionStorage` does not exist during the server render,
+  // and reading it in a `useState` initialiser would produce a hydration
+  // mismatch on the very first paint.
+  useEffect(() => {
+    const pending = readMfaChallenge();
+    setChallenge(pending);
+    if (!pending) router.replace("/auth/login");
+  }, [router]);
+
+  if (!challenge) return <Spinner size="lg" className="mx-auto text-kumtru-blue" />;
+
+  return <TwoFactorChallenge challenge={challenge} />;
 }

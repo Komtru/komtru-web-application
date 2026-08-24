@@ -33,7 +33,7 @@ export function BrandLockup({
   return (
     <span className={cn("inline-flex items-center gap-2 font-display font-semibold", className)}>
       <BrandMark className={cn("text-kumtru-cyan", markClassName)} />
-      Kumtru
+      Komtru
     </span>
   );
 }

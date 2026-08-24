@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Pencil, Sun } from "lucide-react";
 
-import { InitialsAvatar } from "@/components/general/app/initials-avatar";
-import { TabHeader } from "@/components/general/app/screen-header";
+import { ProfileAvatar } from "@/components/general/app/profile-avatar";
+import { VerificationChip } from "@/components/general/app/verification-chip";
 import {
   SettingsChevron,
   SettingsGroup,
@@ -24,80 +24,94 @@ import { useAuthStore } from "@/store/auth.store";
  */
 export default function SettingsPage() {
   const { resolvedTheme, setTheme } = useTheme();
-  const auth = useAuthStore((state) => state.auth);
   const user = useAuthStore((state) => state.user);
+  const me = useAuthStore((state) => state.me);
 
-  const displayName = user ? `${user.firstName} ${user.lastName}` : "Your account";
+  // Falls back through what the API actually guarantees. A profile name is
+  // self-declared and often absent; `publicId` always exists.
+  const displayName =
+    me?.profile?.displayName ||
+    [me?.profile?.firstName, me?.profile?.lastName].filter(Boolean).join(" ") ||
+    user?.username ||
+    "Your account";
+  const avatarUrl = me?.profile?.avatarUrl ?? null;
   const isDark = resolvedTheme === "dark";
 
   return (
-    <>
-      <TabHeader title="Settings" />
+    <div className="flex-1 px-4 pt-4 pb-6">
+      <h1 className="mb-3 text-lg font-semibold">Settings</h1>
 
-      <div className="flex-1 px-4 pt-3 pb-6">
-        <div className="mb-3.5 flex items-center gap-3 rounded-kumtru-md border border-border bg-card p-3.5">
-          <InitialsAvatar name={displayName} size="lg" tone="success" />
+      <div className="mb-3.5 rounded-kumtru-md border border-border bg-card p-3.5">
+        <div className="flex items-center gap-3">
+          <ProfileAvatar url={avatarUrl} name={displayName} size="lg" tone="success" />
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold">{displayName}</p>
             <p className="truncate text-[11px] text-kumtru-slate-500">
-              {auth?.verified ? "Email verified" : "Email not verified"}
-              {auth?.email ? ` · ${auth.email}` : ""}
+              {user?.username ? `@${user.username}` : "No username yet"}
             </p>
           </div>
+          {user ? <VerificationChip level={user.verificationLevel} className="ms-auto" /> : null}
         </div>
 
-        <SettingsGroup label="Appearance">
-          <SettingsRow
-            label="Dark mode"
-            hint="Follows your device by default"
-            trailing={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-                onClick={() => setTheme(isDark ? "light" : "dark")}
-              >
-                {isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
-              </Button>
-            }
-          />
-        </SettingsGroup>
-
-        <SettingsGroup label="Security">
-          <SettingsRow
-            label="Two-step verification"
-            hint={auth?.twoFactor.enabled ? "On" : "Off — strongly recommended"}
-            trailing={
-              <Button asChild variant="ghost" size="icon-sm">
-                <Link href="/auth/2fa/setup" aria-label="Set up two-step verification">
-                  <SettingsChevron />
-                </Link>
-              </Button>
-            }
-          />
-          <SettingsRow label="Trusted devices" trailing={<SettingsChevron />} />
-        </SettingsGroup>
-
-        <SettingsGroup label="Notifications">
-          <SettingsRow
-            label="Payment protected"
-            hint="Not yet configurable"
-            trailing={<SettingsToggle label="Payment protected" checked locked />}
-          />
-          <SettingsRow
-            label="Dispute & fraud alerts"
-            hint="Always on, every channel"
-            trailing={<SettingsToggle label="Dispute and fraud alerts" checked locked />}
-          />
-        </SettingsGroup>
-
-        <Button asChild variant="secondary" size="xl" className="w-full">
-          <Link href="/auth/logout">
-            <LogOut className="size-4" />
-            Sign out
+        <Button asChild variant="secondary" size="sm" className="mt-3.5 w-full">
+          <Link href="/settings/edit-profile">
+            <Pencil className="size-3.5" />
+            Edit profile
           </Link>
         </Button>
       </div>
-    </>
+
+      <SettingsGroup label="Appearance">
+        <SettingsRow
+          label="Dark mode"
+          hint="Follows your device by default"
+          trailing={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+            >
+              {isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
+            </Button>
+          }
+        />
+      </SettingsGroup>
+
+      <SettingsGroup label="Security">
+        {/* Enrolment lives behind POST /me/mfa/totp/enroll and belongs to the
+              account module; rendered as a row rather than a link that 404s. */}
+        <SettingsRow
+          label="Two-step verification"
+          hint={
+            me?.mfa.factors.length
+              ? `On — ${me.mfa.factors.length} factor${me.mfa.factors.length > 1 ? "s" : ""}`
+              : "Off — strongly recommended"
+          }
+          trailing={<SettingsChevron />}
+        />
+        <SettingsRow label="Trusted devices" trailing={<SettingsChevron />} />
+      </SettingsGroup>
+
+      <SettingsGroup label="Notifications">
+        <SettingsRow
+          label="Payment protected"
+          hint="Not yet configurable"
+          trailing={<SettingsToggle label="Payment protected" checked locked />}
+        />
+        <SettingsRow
+          label="Dispute & fraud alerts"
+          hint="Always on, every channel"
+          trailing={<SettingsToggle label="Dispute and fraud alerts" checked locked />}
+        />
+      </SettingsGroup>
+
+      <Button asChild variant="secondary" size="xl" className="w-full">
+        <Link href="/auth/logout">
+          <LogOut className="size-4" />
+          Sign out
+        </Link>
+      </Button>
+    </div>
   );
 }

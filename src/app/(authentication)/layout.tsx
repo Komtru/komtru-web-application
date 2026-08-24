@@ -16,7 +16,7 @@ const assurances = [
 
 export default function AuthenticationLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`${fonts.body.className} flex min-h-screen flex-col`}>
+    <div className={`${fonts.body.className} flex min-h-dvh flex-col`}>
       <div className="flex flex-1 flex-col lg:flex-row">
         {/* Brand panel */}
         <aside className="relative hidden flex-col justify-between bg-kumtru-navy p-10 text-white lg:flex lg:w-[46%] xl:w-[42%]">
@@ -29,7 +29,7 @@ export default function AuthenticationLayout({ children }: { children: ReactNode
               Trade with anyone. Trust the process.
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-kumtru-slate-300">
-              Kumtru sits between two parties who have no reason to trust each other yet — and gives
+              Komtru sits between two parties who have no reason to trust each other yet — and gives
               them one.
             </p>
 
@@ -49,7 +49,7 @@ export default function AuthenticationLayout({ children }: { children: ReactNode
           </div>
 
           <p className="text-xs text-kumtru-slate-400">
-            Kumtru will never ask you to pay outside an active trade, share a one-time code, or send
+            Komtru will never ask you to pay outside an active trade, share a one-time code, or send
             money to a personal account.
           </p>
         </aside>
@@ -77,7 +77,7 @@ export default function AuthenticationLayout({ children }: { children: ReactNode
           </div>
 
           <footer className="flex flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-kumtru-slate-500 lg:px-12">
-            <span>© {new Date().getFullYear()} Kumtru. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} Komtru. All rights reserved.</span>
             <nav className="flex gap-4">
               <Link href="/privacy" className="hover:text-foreground">
                 Privacy

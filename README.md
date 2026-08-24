@@ -50,7 +50,9 @@ only `.env.example` is tracked.
 | Variable                         | Purpose                                                                 |
 | -------------------------------- | ----------------------------------------------------------------------- |
 | `NEXT_PUBLIC_BASE_URL`           | Backend origin + version prefix. The browser never calls this directly. |
-| `NEXT_PUBLIC_WS_BASE_URL`        | Websocket origin for realtime trade updates.                            |
+| `NEXT_PUBLIC_WS_BASE_URL`        | Socket.IO origin for realtime notifications and trade updates.          |
+| `NEXT_PUBLIC_WS_PATH`            | Socket.IO handshake path. Must match the backend's `SOCKET_PATH`.       |
+| `NEXT_PUBLIC_TERMS_VERSION`      | Terms version recorded against each signup. Bump when terms change.     |
 | `NEXT_PUBLIC_APP_URL`            | Public origin of this app; drives `metadataBase` and OG image URLs.     |
 | `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | reCAPTCHA v2 site key.                                                  |
 
@@ -60,7 +62,31 @@ The layout is designed at phone width and **centred in a column** on larger scre
 with side borders), rather than growing a sidebar it would never have on the device most customers
 actually use. There is no desktop shell and no sidebar primitive in this repo.
 
-What that means concretely:
+### The shell is sized to the usable height, not the document
+
+`(app)` renders a column that is **exactly `--app-height` tall and does not scroll**. Only `<main>`
+scrolls, so the header stays welded to the top edge and the tab bar sits snug on the bottom edge of
+what the browser actually leaves visible.
+
+- `--app-height` is written to `<html>` by `hooks/use-viewport-height.ts`, measured from
+  `visualViewport.height`. `100dvh` is the pre-paint fallback and is close, but it is the height
+  with browser chrome _retracted_ — mid-scroll on a phone the shell would be taller than the screen
+  and the bar would sit below the fold.
+- **It is not remeasured while the keyboard is open.** If it were, the column would collapse to the
+  space above the keyboard and drag the tab bar on top of the field being typed into. The hook
+  reports `keyboardOpen` instead and the shell hides the bar for the duration — the same outcome a
+  native app gets by letting the keyboard cover it, without the jump.
+- Safe-area insets still apply on both edges (`env(safe-area-inset-top)` on the header,
+  `env(safe-area-inset-bottom)` on the tab bar), so nothing lands under the notch or the home
+  indicator.
+
+Chrome above that: a **header** (drawer trigger, brand, alerts bell with live unread count) and an
+**openable sidebar** — a left `Sheet` that overlays rather than pushes, so the column width never
+changes and the tab bar stays where the thumb left it. The drawer deliberately is _not_ a second
+copy of the tab bar: the four constant destinations already have permanent thumb-reachable slots, so
+it carries account, security, statements, help and legal instead.
+
+What mobile-first means elsewhere:
 
 - **Bottom tab bar**, four fixed destinations — Trades, Passport, Alerts, Settings. There is
   deliberately **no browse/discovery tab**: discovery happens off-platform (Instagram, WhatsApp, a
@@ -103,18 +129,22 @@ from a link, which is the same habit that keeps someone off a spoofed "your trad
 
 Three route groups:
 
-| Group              | Owns                                           | Shell                                                |
-| ------------------ | ---------------------------------------------- | ---------------------------------------------------- |
-| `(marketing)`      | `/`, `/privacy`, `/terms`                      | Dark navy, floating pill navbar, footer              |
-| `(authentication)` | `/auth/*`                                      | Single column on mobile; brand panel appears at `lg` |
-| `(app)`            | `/trades`, `/passport`, `/alerts`, `/settings` | Mobile shell + bottom tab bar, auth-gated            |
+| Group              | Owns                                           | Shell                                                   |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------- |
+| `(marketing)`      | `/`, `/privacy`, `/terms`                      | Dark navy, floating pill navbar, footer                 |
+| `(authentication)` | `/auth/*`                                      | Single column on mobile; brand panel appears at `lg`    |
+| `(app)`            | `/trades`, `/passport`, `/alerts`, `/settings` | App shell: header + drawer + bottom tab bar, auth-gated |
 
 App routes sit at the root (`/trades`, not `/dashboard/trades`) to match the URLs in the screens
 guide. `src/app/offline/` is outside every group — it must render with no shell and no session.
 
+`(authentication)` owns `/auth/login`, `/auth/register`, `/auth/verify` (the OTP screen),
+`/auth/2fa`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/logout` and
+`/auth/social/[provider]/callback`.
+
 `src/middleware.ts` is deliberately a **pass-through**. Tokens live in `localStorage`, which
 middleware cannot read, so guarding routes there would be theatre. `(app)/layout.tsx` redirects
-client-side on `hydrated && !access`, and the API enforces access for real on every request.
+client-side on `hydrated && !accessToken`, and the API enforces access for real on every request.
 
 ## Architecture
 
@@ -131,20 +161,86 @@ instances (JSON and multipart). Its methods take one object argument and return 
 - Only `services/*.services.ts` import the facade.
 - Components call React Query hooks — never the facade, never axios.
 
+### Authentication
+
+Every contract in `interfaces/auth.ts` is mirrored from `backend-apis/src/modules/identity`. The
+shapes that drive the screens:
+
+| Flow           | Endpoints                                                                               |
+| -------------- | --------------------------------------------------------------------------------------- |
+| Register       | `POST /auth/register` → `POST /auth/verify-otp`                                         |
+| Sign in        | `POST /auth/login` → (`POST /auth/mfa/verify` if `mfaRequired`)                         |
+| Password reset | `POST /auth/password/forgot` → `POST /auth/password/reset`                              |
+| Social         | `GET /auth/providers`, `GET /auth/social/:p/authorize`, `POST /auth/social/:p/callback` |
+| Session        | `POST /auth/refresh`, `POST /auth/logout`, `GET /me`                                    |
+
+Things about this API that shape the UI, and are easy to get wrong:
+
+- **Registration returns no tokens.** A user who has not proven control of a channel gets no
+  session, so `/auth/register` hands off to `/auth/verify` with a `challengeId` and the account only
+  becomes usable once the OTP is redeemed.
+- **`identifier` is one field** for email, phone _or_ username, and the client must not guess which.
+- **Every credential failure is the same 401** — unknown, wrong, revoked, expired, suspended. So is
+  every `password/forgot` response, whether or not the account exists. Copy that implied otherwise
+  would hand back the answer the endpoint withholds.
+- **One channel per registration.** Sending `phone` alongside `channel: 'EMAIL'` is a 400, not an
+  ignored field — the API's Joi schemas have no `.unknown()`.
+- **Password rules are length-only** (≥10). No composition rules, because forced symbols produce
+  `Password1!` at scale; the API checks a breach corpus instead and explains itself in the 400.
+- **Google/Apple redirect back to _this_ app**, at `/auth/social/[provider]/callback`, because the
+  API's own callback is a `POST`. That URL is what must be registered with the provider.
+- **The refresh token lives in `localStorage`, not the cookie.** The API does set an HttpOnly
+  cookie, but it is scoped to `/v1/auth` on the API's origin and this app calls a same-origin `/api`
+  proxy, so the browser never sends it. The body path is the one the API offers mobile clients.
+
+### Onboarding: the username gate
+
+`GET /me` returns a `nextStep`. Exactly one value blocks: **`CHOOSE_USERNAME`** renders
+`UsernameGate` _instead of_ the app shell — no tab bar, no drawer, nothing to tap past. The other two
+(`ADD_SECOND_CHANNEL`, `SET_PASSWORD`) surface as a drawer prompt, because the API is explicit that a
+user with one verified channel can browse and buy.
+
+`SessionBoundary` owns that decision and the `GET /me` sync, so a stale persisted `nextStep` is
+corrected by the server rather than trusted. It reads the value from the store, not straight off the
+query, so login and OTP verification (which both return `nextStep` themselves) put the gate up on the
+first paint instead of flashing the shell.
+
+The field is a live availability check against `GET /usernames/availability`, and its shape is
+dictated by that endpoint:
+
+- **20 checks per minute, per actor.** Hence a 450ms debounce, no request until the local format
+  check passes, and a 60s `staleTime` so backtracking over a candidate costs nothing. A
+  check-per-keystroke burns the budget in three seconds and then 429s the user mid-word.
+- **`USERNAME_PATTERN` is mirrored** in `interfaces/auth.ts` to avoid round-trips on input that
+  cannot be valid — but only the server knows about reserved namespaces, blocked terms, quarantine
+  and confusability, so its answer wins. Uppercase and whitespace are corrected on input rather than
+  rejected, since neither is ever valid.
+- **The verdict tracks the field, not the last completed request.** Otherwise a stale "Available"
+  sits under an edited handle and the submit button lies.
+- **Suggestions come back pre-verified as claimable**, so tapping one lands on a handle that will not
+  bounce.
+- **A 409 on claim is expected.** `POST /me/username` re-checks inside its own transaction, so the
+  handle can go in the gap — the form re-runs the check rather than leaving a dead button.
+
+`POST /me/username` is the first claim: unrestricted. `PATCH /me/username` is a rename and carries
+step-up, a 30-day cooldown, a lifetime cap of three and a block while any trade is live — which is
+why the gate says so up front.
+
 ### Auth interceptors
 
 Requests attach `Bearer <access token>` from the auth store, unless a caller set `Authorization`
 explicitly. Responses share one error handler, attached to both instances:
 
-1. A **revoked** token (status + stable error code) hard-redirects to `/auth/logout?code=access_revoked`.
-2. An **expired** access token triggers a refresh through a **single-flight queue** — module-scoped
-   `isRefreshing`, `refreshPromise` and `failedQueue` — so N concurrent 401s produce exactly one
-   `POST /auth/refresh-tokens`, and every queued request replays with the new token.
+1. A **401** on a non-bypassed path triggers a refresh through a **single-flight queue** —
+   module-scoped `isRefreshing`, `refreshPromise` and `failedQueue` — so N concurrent 401s produce
+   exactly one `POST /auth/refresh`, and every queued request replays with the new token.
+2. If that refresh also fails, the session is over: hard-redirect to `/auth/logout?code=session_ended`.
+   There is no second attempt, because the API gives the client no way to tell an expired token from
+   a revoked one — and by design.
 3. Everything else rejects with the API error envelope, or the raw error when there is no response.
    A network failure never resolves to `undefined`.
 
-Expiry and revocation are detected by **HTTP status plus a machine-readable code**
-(`AUTH_ERROR_CODES` in `services/base.ts`) — never by matching message strings.
+A **403** never triggers a refresh: it is an authorisation answer about a session that is valid.
 
 ### Server state vs client state
 
@@ -152,10 +248,34 @@ Expiry and revocation are detected by **HTTP status plus a machine-readable code
   singleton (`staleTime: 30s`, no refetch on focus). Every endpoint is a `use<Verb><Noun>` hook in
   `services/<domain>.services.ts` with exported query keys (`authKeys`, `tradeKeys`).
 - **Client state:** Zustand. `store/auth.store.ts` persists the session to `localStorage` under
-  `kumtru-auth-store`. Server data is never duplicated into Zustand.
+  `kumtru-auth-store`: tokens, the small `UserSummary` every session response carries, the fuller
+  `GET /me` view and `nextStep`. Server data is not otherwise duplicated into Zustand.
 
 Because the session lives in `localStorage`, anything auth-dependent must be gated on `hydrated`, or
 it will mismatch on hydration. `waitForHydration()` exists for imperative callers.
+
+### Realtime
+
+One Socket.IO connection per session, owned by `realtime/socket-provider.tsx` and mounted once from
+`(app)/layout.tsx` — never per-page, never per-component, and never for a logged-out visitor (the
+layout holds back the whole subtree until `hydrated && accessToken`, so the provider is not reached
+at all before then).
+
+- **Credential:** the app's own access token, read from the auth store. There is no separately
+  minted socket token, because there is no server-side session to mint one from — tokens live in
+  `localStorage` and the shell is a Client Component. The backend must verify the handshake token
+  with the same secret it uses for `Authorization: Bearer`.
+- **Token refresh does not drop the connection.** The token is read through a ref by socket.io's
+  function-form `auth`, which re-runs on every connection attempt, so reconnects present a current
+  credential while a healthy connection is left alone.
+- **Consuming:** `useSocketEvent(event, handler)` subscribes and cleans up on unmount (no
+  `useCallback` needed); `useNotifications()` gives `unreadCount` / `notifications` / `markAllRead`;
+  `useSocketReconnect(fn)` runs after the connection comes back, but not on first connect.
+- **A live event is a hint, never the source of truth.** The in-memory buffer is capped at 50 and
+  history stays behind the API; on reconnect the notification provider invalidates active queries
+  rather than assuming nothing was missed.
+
+What a notification _means_ and how it renders belongs to the Notifications module, not here.
 
 ### Styling
 
@@ -195,13 +315,14 @@ src/
     fonts.ts                next/font/google exports
     offline/                SW navigation fallback — no shell, no session
     (marketing)/            landing, privacy, terms
-    (authentication)/       login, register, verify, logout, 2FA, password reset
+    (authentication)/       login, register, OTP verify, 2FA, password reset, social callback,
+                            logout
     (app)/                  auth-gated mobile shell: trades, passport, alerts, settings
   components/
     ui/                     shadcn primitives + FloatingLabelInput, Spinner, DatePicker, MultiSelect
     general/
-      app/                  shell primitives: tab bar, headers, sticky actions, empty state,
-                            settings rows, initials avatar
+      app/                  shell: app-shell, header, sidebar, tab bar, screen headers,
+                            sticky actions, empty state, settings rows, avatar, verification chip
       trade/                trade-row, trade-timeline
       pwa/                  service-worker registrar, install prompt
       brand-mark, safety-callout, trust-status-chip, marketing-navbar
@@ -209,10 +330,13 @@ src/
     query-provider.tsx
     theme-provider.tsx
   config/navigation.tsx     bottom tab bar + marketing nav
-  helpers/                  money, timezones, trade status mapping, error mapping
-  hooks/                    use-mobile, useCustomToast, useRowLoading, useDeviceTimeZone
-  interfaces/               IAxios.ts, auth.ts, trade.ts
+  helpers/                  auth (device id, MFA hand-off, redirect URIs), money, timezones,
+                            trade status mapping, error mapping
+  hooks/                    use-viewport-height, use-mobile, useCustomToast, useRowLoading,
+                            useDeviceTimeZone
+  interfaces/               IAxios.ts, auth.ts, trade.ts, realtime.ts
   lib/                      react-query.ts, utils.ts
+  realtime/                 socket provider + hooks, notification provider
   services/                 base.ts (facade) + auth/trade services
   store/auth.store.ts
   middleware.ts

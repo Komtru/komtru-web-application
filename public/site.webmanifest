@@ -1,7 +1,7 @@
 {
   "id": "/trades",
-  "name": "Kumtru \u2014 Trade with anyone. Trust the process.",
-  "short_name": "Kumtru",
+  "name": "Komtru \u2014 Trade with anyone. Trust the process.",
+  "short_name": "Komtru",
   "description": "Trade protection: agree the terms, protect the payment, release it when the deal is honoured.",
   "start_url": "/trades",
   "scope": "/",
