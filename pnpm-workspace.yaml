@@ -1,3 +1,14 @@
 onlyBuiltDependencies:
   - "@tailwindcss/oxide"
   - sharp
+
+overrides:
+  # next pins postcss 8.4.31 internally; 8.5.23+ fixes the sourceMappingURL
+  # arbitrary .map file read advisories (build-time only, but free to patch).
+  postcss: "^8.5.23"
+  # nookies depends on cookie 0.4.x; 0.7.0 fixes out-of-bounds characters in
+  # cookie name/path/domain. parse/serialize API is unchanged.
+  cookie: "^0.7.0"
+  # next 15.5 declares sharp ^0.34.3, which carries the libvips CVEs. next 16
+  # ships ^0.35.3, so 0.35 is compatible with next's image-optimizer usage.
+  sharp: "^0.35.3"
