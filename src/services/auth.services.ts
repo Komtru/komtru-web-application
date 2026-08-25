@@ -2,6 +2,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import type { IResponse } from "@/interfaces/IAxios";
 import type {
+  BeginStepUpPayload,
+  CompleteStepUpPayload,
+  CompleteStepUpResult,
   ForgotPasswordPayload,
   LoginPayload,
   LoginResult,
@@ -16,6 +19,7 @@ import type {
   SocialAuthorizeResult,
   SocialCallbackPayload,
   SocialCallbackResult,
+  StepUpChallenge,
   UpdateProfilePayload,
   UserProfile,
   VerifyOtpPayload,
@@ -141,6 +145,50 @@ export function useResetPassword() {
   return useMutation<{ message?: string }, unknown, ResetPasswordPayload>({
     mutationFn: async (payload) => {
       return http.post<{ message?: string }>({ url: "auth/password/reset", body: payload });
+    },
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step-up                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Opens a re-authentication challenge for one sensitive action.
+ *
+ * `method` decides where the proof comes from, and only `EMAIL_OTP`/`SMS_OTP`
+ * return a `challengeId` — the code goes to the account's PRIMARY verified
+ * address or number, never to a destination the caller names. That matters for
+ * the copy: on an account that already has a primary, the code does not arrive
+ * at the channel being changed.
+ */
+export function useBeginStepUp() {
+  return useMutation<StepUpChallenge, unknown, BeginStepUpPayload>({
+    mutationFn: async (payload) => {
+      const response = await http.post<IResponse<StepUpChallenge>>({
+        url: "auth/step-up/begin",
+        body: payload,
+      });
+      return response.data;
+    },
+  });
+}
+
+/**
+ * Proves the challenge. Does NOT perform the action.
+ *
+ * The token comes back satisfied but unspent, so the caller then sends it as
+ * `X-Step-Up-Token` on the real request. The split is deliberate: it removes the
+ * window where the proof is consumed but the change never happened.
+ */
+export function useCompleteStepUp() {
+  return useMutation<CompleteStepUpResult, unknown, CompleteStepUpPayload>({
+    mutationFn: async (payload) => {
+      const response = await http.post<IResponse<CompleteStepUpResult>>({
+        url: "auth/step-up/complete",
+        body: payload,
+      });
+      return response.data;
     },
   });
 }
