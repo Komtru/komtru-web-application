@@ -16,7 +16,7 @@ export function TicketRow({ ticket }: { ticket: Ticket }) {
   return (
     <Link
       href={`/help/${ticket.id}`}
-      className="bg-card border-border rounded-kumtru-md block border p-3.5 transition-colors active:bg-secondary"
+      className="block rounded-kumtru-md border border-border bg-card p-3.5 transition-colors active:bg-secondary"
     >
       <div className="mb-2 flex items-start justify-between gap-3">
         <span className="line-clamp-1 text-sm font-semibold">{ticket.category}</span>

@@ -56,7 +56,9 @@ export default function TicketDetailPage() {
   const ticket = data?.ticket;
   const isTerminal = ticket ? TERMINAL_STATUSES.has(ticket.status) : false;
   const canReopen =
-    isTerminal && Boolean(ticket?.reopenableUntil) && DateTime.fromISO(ticket!.reopenableUntil!) > DateTime.now();
+    isTerminal &&
+    Boolean(ticket?.reopenableUntil) &&
+    DateTime.fromISO(ticket!.reopenableUntil!) > DateTime.now();
 
   function handleSend() {
     if (!draft.trim() || reply.isPending) return;
@@ -92,7 +94,10 @@ export default function TicketDetailPage() {
           // customer exactly why, instead of leaving them to retry a dead action.
           showToast({
             title: "Couldn't reopen this ticket",
-            description: toErrorMessage(err, "That window may have closed. Start a new ticket instead."),
+            description: toErrorMessage(
+              err,
+              "That window may have closed. Start a new ticket instead.",
+            ),
             type: "error",
           });
         },
@@ -102,10 +107,7 @@ export default function TicketDetailPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <ScreenHeader
-        title={ticket?.ticketNumber ?? "Ticket"}
-        onBack={() => router.push("/help")}
-      />
+      <ScreenHeader title={ticket?.ticketNumber ?? "Ticket"} onBack={() => router.push("/help")} />
 
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center">
@@ -115,7 +117,11 @@ export default function TicketDetailPage() {
         <div className="flex-1 px-4 pt-4">
           <SafetyCallout variant="risk" title="Couldn't load this ticket.">
             {toErrorMessage(error, "Something went wrong.")}{" "}
-            <button type="button" onClick={() => void refetch()} className="font-semibold underline">
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="font-semibold underline"
+            >
               Try again
             </button>
           </SafetyCallout>
@@ -142,8 +148,8 @@ export default function TicketDetailPage() {
             {isTerminal ? (
               canReopen ? (
                 <SafetyCallout variant="info" title="This ticket is closed.">
-                  Still not sorted? You can reopen it — that's faster than starting over, and keeps
-                  everything you already told us.
+                  Still not sorted? You can reopen it — that&apos;s faster than starting over, and
+                  keeps everything you already told us.
                   <Dialog open={reopenOpen} onOpenChange={setReopenOpen}>
                     <DialogTrigger asChild>
                       <Button variant="secondary" size="sm" className="mt-2.5">
@@ -154,7 +160,8 @@ export default function TicketDetailPage() {
                       <DialogHeader>
                         <DialogTitle>Reopen this ticket</DialogTitle>
                         <DialogDescription>
-                          Tell us what's still wrong — this goes straight back to a Komtru agent.
+                          Tell us what&apos;s still wrong — this goes straight back to a Komtru
+                          agent.
                         </DialogDescription>
                       </DialogHeader>
                       <Textarea
@@ -165,7 +172,9 @@ export default function TicketDetailPage() {
                       />
                       <DialogFooter>
                         <Button
-                          disabled={reopenReason.trim().length < REOPEN_REASON_MIN || reopen.isPending}
+                          disabled={
+                            reopenReason.trim().length < REOPEN_REASON_MIN || reopen.isPending
+                          }
                           onClick={handleReopen}
                         >
                           {reopen.isPending ? <Spinner /> : "Reopen"}
@@ -176,8 +185,8 @@ export default function TicketDetailPage() {
                 </SafetyCallout>
               ) : (
                 <SafetyCallout variant="info" title="This ticket is closed.">
-                  It's past the window to reopen it. If this is still going on, start a new ticket and
-                  mention this one's number — {ticket!.ticketNumber}.
+                  It&apos;s past the window to reopen it. If this is still going on, start a new
+                  ticket and mention this one&apos;s number — {ticket!.ticketNumber}.
                 </SafetyCallout>
               )
             ) : null}

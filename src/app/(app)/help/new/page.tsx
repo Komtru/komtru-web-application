@@ -66,14 +66,14 @@ export default function NewTicketPage() {
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
         <SafetyCallout variant="warning" title="Komtru support will never ask for an OTP.">
-          Not your login code, not a one-time payment code, not your password — not here, not on a call.
-          Anyone who does is not really Komtru.
+          Not your login code, not a one-time payment code, not your password — not here, not on a
+          call. Anyone who does is not really Komtru.
         </SafetyCallout>
 
         <div className="mt-5 space-y-4">
           <div>
             <Label htmlFor="topic" className="text-[11px] font-semibold tracking-wide uppercase">
-              What's this about?
+              What&apos;s this about?
             </Label>
             <Select value={queueCode} onValueChange={setQueueCode}>
               <SelectTrigger id="topic" className="mt-1.5 h-12 w-full">
@@ -126,7 +126,12 @@ export default function NewTicketPage() {
       </div>
 
       <StickyActionBar>
-        <Button size="xl" className="w-full" disabled={!canSubmit || isPending} onClick={handleSubmit}>
+        <Button
+          size="xl"
+          className="w-full"
+          disabled={!canSubmit || isPending}
+          onClick={handleSubmit}
+        >
           {isPending ? <Spinner /> : "Submit"}
         </Button>
       </StickyActionBar>

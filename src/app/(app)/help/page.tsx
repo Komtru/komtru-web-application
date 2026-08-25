@@ -28,7 +28,7 @@ export default function HelpPage() {
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
         <h1 className="text-lg font-semibold">Help & Support</h1>
         <p className="mt-1 mb-4 text-[11.5px] text-kumtru-slate-500">
-          Every ticket you have opened with Komtru, and how it's going.
+          Every ticket you have opened with Komtru, and how it&apos;s going.
         </p>
 
         {isLoading ? (
@@ -38,7 +38,11 @@ export default function HelpPage() {
         ) : isError ? (
           <SafetyCallout variant="risk" title="Couldn't load your tickets.">
             {toErrorMessage(error, "Something went wrong.")}{" "}
-            <button type="button" onClick={() => void refetch()} className="font-semibold underline">
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="font-semibold underline"
+            >
               Try again
             </button>
           </SafetyCallout>
