@@ -382,6 +382,166 @@ export interface ProvidersResult {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Contact channels                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `/me/emails` and `/me/phones` are deliberately symmetric — same four verbs,
+ * same challenge shape — so most of this module is written once and switched on
+ * this union rather than duplicated per endpoint.
+ */
+export type ContactChannel = "EMAIL" | "PHONE";
+
+export interface EmailChannelRow {
+  id: string;
+  email: string;
+  /** Safe to render anywhere. The full address is only ever returned to its owner. */
+  masked: string;
+  verified: boolean;
+  isPrimary: boolean;
+  addedAt: string;
+}
+
+export interface PhoneChannelRow {
+  id: string;
+  phone: string;
+  masked: string;
+  verified: boolean;
+  isPrimary: boolean;
+  /**
+   * SIM-recycling defence: a verified number unused for a year has to prove
+   * itself again. Null until the number is verified.
+   */
+  reverifyAfter: string | null;
+  addedAt: string;
+}
+
+export type ContactChannelRow = EmailChannelRow | PhoneChannelRow;
+
+/** Adding a channel also sends the first code, so the challenge comes back with the id. */
+export interface AddContactResult {
+  id: string;
+  verified: false;
+  challengeId: string;
+  /** Echoed on the phone channel, so the UI can name the route the code took. */
+  channel?: OtpTransport;
+}
+
+/** A resend mints a NEW challenge and consumes the old one — this id replaces it. */
+export interface ChallengeResult {
+  challengeId: string;
+  channel?: OtpTransport;
+}
+
+export interface AddContactPayload {
+  channel: ContactChannel;
+  /** An address on the EMAIL channel, an E.164-ish number on the other. */
+  destination: string;
+  /** PHONE only, and it must be sent — see `OtpTransport`. */
+  transport?: OtpTransport;
+}
+
+export interface VerifyContactPayload {
+  channel: ContactChannel;
+  id: string;
+  challengeId: string;
+  code: string;
+}
+
+export interface ContactIdPayload {
+  channel: ContactChannel;
+  id: string;
+}
+
+export interface ResendContactPayload extends ContactIdPayload {
+  /**
+   * A resend states its own transport rather than repeating the one used when the
+   * number was added — nothing is stored per phone about the last route used, and
+   * "try WhatsApp instead" is the most useful thing a user can do about a code
+   * that never arrived.
+   */
+  transport?: OtpTransport;
+}
+
+/**
+ * How a phone OTP travels, on the wire as `channel`.
+ *
+ * **Must be sent explicitly.** The API defaults this to `SMS`, so omitting it is
+ * not "let the server decide" — it is choosing the one transport this platform
+ * cannot currently deliver, and the user waits for a text that never comes while
+ * the screen says WhatsApp.
+ *
+ * `VOICE` is in the API's `otp_channel` enum for a future read-aloud path but has
+ * no message template, so these two are the only real options.
+ */
+export type OtpTransport = "WHATSAPP" | "SMS";
+
+/* -------------------------------------------------------------------------- */
+/* Step-up                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Actions that need proof of a PRESENT authentication, not just a live session.
+ *
+ * Mirrored from `STEP_UP_ACTIONS` on the API. Every one either moves money,
+ * changes where money goes, or changes how the account is recovered — which is
+ * why promoting a contact channel to primary is on the list.
+ */
+export type StepUpAction =
+  | "PASSWORD_CHANGE"
+  | "EMAIL_CHANGE"
+  | "PHONE_CHANGE"
+  | "MFA_REMOVAL"
+  | "PAYOUT_ACCOUNT_CHANGE"
+  | "USERNAME_CHANGE"
+  | "SOCIAL_UNLINK"
+  | "SELLER_ACTIVATION"
+  | "DEVICE_TRUST"
+  | "ACCOUNT_CLOSURE"
+  | "SOCIAL_LINK_CONFIRM";
+
+export type StepUpMethod = "PASSWORD" | "TOTP" | "EMAIL_OTP" | "SMS_OTP" | "PASSKEY";
+
+/**
+ * The header the proof is presented on.
+ *
+ * A header rather than a body field so it composes with any route shape — and it
+ * is CONSUMED by the action, so one proof authorises exactly one request.
+ */
+export const STEP_UP_TOKEN_HEADER = "X-Step-Up-Token";
+
+export interface BeginStepUpPayload {
+  action: StepUpAction;
+  method: StepUpMethod;
+}
+
+export interface StepUpChallenge {
+  stepUpToken: string;
+  /** Set only for the methods that deliver a code — null for PASSWORD, TOTP, PASSKEY. */
+  challengeId: string | null;
+  methods: string[];
+}
+
+export interface CompleteStepUpPayload {
+  stepUpToken: string;
+  /** The password, the TOTP code or the delivered OTP — whichever the method asked for. */
+  proof: string;
+  /** TOTP only. */
+  factorId?: string;
+}
+
+/**
+ * The token is echoed back because the CALLER now spends it on the real action.
+ * Splitting proof from act is what avoids a window where the proof is used up
+ * but nothing happened.
+ */
+export interface CompleteStepUpResult {
+  verified: true;
+  action: StepUpAction;
+  stepUpToken: string;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Store contract                                                             */
 /* -------------------------------------------------------------------------- */
 
