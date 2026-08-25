@@ -107,7 +107,7 @@ export const drawerNav: { key: string; label: string; href: string; icon: Lucide
   { key: "alerts", label: "Alerts", href: "/alerts", icon: Bell },
   { key: "account", label: "Account & security", href: "/settings", icon: Lock },
   { key: "statements", label: "Trade statements", href: "/trades", icon: FileText },
-  { key: "support", label: "Get help", href: "/settings", icon: LifeBuoy },
+  { key: "support", label: "Get help", href: "/help", icon: LifeBuoy },
   { key: "terms", label: "Terms & privacy", href: "/terms", icon: ScrollText },
 ];
 
