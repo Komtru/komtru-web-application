@@ -401,6 +401,13 @@ someone sent.
 
 ## Deployment
 
+The deployed environment builds on **Vercel**, driven by the GitHub app rather than by anything in
+this repo — which is why you will find no workflow file to read. Every push and every pull request
+gets a build, and the two `Vercel – komtru-web-application*` checks on a PR are it reporting back. A
+merge to `main` is therefore the whole deploy step; there is nothing to run by hand.
+
+The pm2 path below is for **self-hosting** — a staging box, or a network with no egress to Vercel:
+
 ```bash
 pnpm build
 pnpm start        # pm2, app name `kumtru-ui`, port 3100
