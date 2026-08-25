@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { LogOut, Moon, Pencil, Sun } from "lucide-react";
+import { LifeBuoy, LogOut, Moon, Pencil, Sun } from "lucide-react";
 
 import { ProfileAvatar } from "@/components/general/app/profile-avatar";
 import { VerificationChip } from "@/components/general/app/verification-chip";
@@ -104,6 +104,25 @@ export default function SettingsPage() {
           hint="Always on, every channel"
           trailing={<SettingsToggle label="Dispute and fraud alerts" checked locked />}
         />
+      </SettingsGroup>
+
+      <SettingsGroup label="Support">
+        {/* The one row in this file that is actually wired rather than a placeholder — M10 built the
+            screen it points to, `/help`. It sits here as well as in the drawer's "Get help" row
+            (`config/navigation.tsx`): a customer who is already in Settings looking for something
+            should not have to back out to the drawer to find it. */}
+        <Link href="/help" className="block">
+          <SettingsRow
+            label="Help & Support"
+            hint="Message Komtru about a trade, payment, or your account"
+            trailing={
+              <span className="flex items-center gap-1.5 text-kumtru-slate-400">
+                <LifeBuoy className="size-4" aria-hidden="true" />
+                <SettingsChevron />
+              </span>
+            }
+          />
+        </Link>
       </SettingsGroup>
 
       <Button asChild variant="secondary" size="xl" className="w-full">
