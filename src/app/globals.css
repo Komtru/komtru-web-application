@@ -8,6 +8,10 @@
    Every colour used in the app comes from here as a `*-kumtru-*` utility class
    (bg-kumtru-navy, text-kumtru-slate-500, border-kumtru-hairline, ...).
    No raw hex belongs in a component.
+
+   Fixed hues live in `@theme` below. The semantic soft/on-soft pairs do not:
+   a soft surface is a *tint of the page*, so it has to flip with the theme —
+   see the `:root` / `.dark` blocks further down.
    --------------------------------------------------------------------------- */
 @theme {
   --font-display: var(--font-space-grotesk), "Inter", ui-sans-serif, sans-serif;
@@ -20,11 +24,8 @@
   --color-kumtru-navy-deep: #080d16;
   --color-kumtru-charcoal: #101725;
   --color-kumtru-blue: #4552d6;
-  --color-kumtru-blue-soft: #edeffc;
   --color-kumtru-cyan: #159768;
-  --color-kumtru-cyan-soft: #e5f5ee;
   --color-kumtru-gold: #b9791f;
-  --color-kumtru-gold-soft: #fbf0dd;
 
   /* Neutrals */
   --color-kumtru-gray: #9aa5b8;
@@ -40,22 +41,13 @@
   --color-kumtru-slate-800: #232b3c;
   --color-kumtru-slate-900: #101725;
 
-  /* Semantic states — each has a soft surface and an on-soft foreground */
+  /* Semantic states — the hue itself. Its soft/on-soft pair is theme-aware and
+     lives with the surface variables below. */
   --color-kumtru-success: #159768;
-  --color-kumtru-success-soft: #e5f5ee;
-  --color-kumtru-success-on-soft: #0c6b49;
   --color-kumtru-info: #4552d6;
-  --color-kumtru-info-soft: #edeffc;
-  --color-kumtru-info-on-soft: #3540ad;
   --color-kumtru-warning: #b9791f;
-  --color-kumtru-warning-soft: #fbf0dd;
-  --color-kumtru-warning-on-soft: #7a4e12;
   --color-kumtru-risk: #c0392e;
-  --color-kumtru-risk-soft: #fbeae8;
-  --color-kumtru-risk-on-soft: #9c2b22;
   --color-kumtru-neutral: #9aa5b8;
-  --color-kumtru-neutral-soft: #eef1f5;
-  --color-kumtru-neutral-on-soft: #4c5568;
 
   /* Radii + motion, mirrored from the brand guide */
   --radius-kumtru-sm: 8px;
@@ -108,6 +100,21 @@
     --sidebar-accent-foreground: #3540ad;
     --sidebar-border: #e5e9f0;
     --sidebar-ring: #4552d6;
+
+    /* Semantic soft surfaces: a wash of the hue over the page, plus the one
+       foreground that reads on it. Light mode tints towards white and darkens
+       the ink; `.dark` does the reverse — a callout on a #080d16 page needs a
+       dark tint, or `text-foreground` sits on near-white and vanishes. */
+    --kumtru-success-soft: #e5f5ee;
+    --kumtru-success-on-soft: #0c6b49;
+    --kumtru-info-soft: #edeffc;
+    --kumtru-info-on-soft: #3540ad;
+    --kumtru-warning-soft: #fbf0dd;
+    --kumtru-warning-on-soft: #7a4e12;
+    --kumtru-risk-soft: #fbeae8;
+    --kumtru-risk-on-soft: #9c2b22;
+    --kumtru-neutral-soft: #eef1f5;
+    --kumtru-neutral-on-soft: #4c5568;
   }
 
   .dark {
@@ -145,10 +152,42 @@
     --sidebar-accent-foreground: #c3c9f6;
     --sidebar-border: #232b3c;
     --sidebar-ring: #7c86e8;
+
+    /* Each surface sits at roughly `--secondary`'s lightness so a callout reads
+       as a raised panel rather than a hole; each on-soft clears 7:1 against it,
+       and `text-foreground` clears 13:1. */
+    --kumtru-success-soft: #10291f;
+    --kumtru-success-on-soft: #5cd3a3;
+    --kumtru-info-soft: #191f3a;
+    --kumtru-info-on-soft: #a5adf6;
+    --kumtru-warning-soft: #31240e;
+    --kumtru-warning-on-soft: #e0b264;
+    --kumtru-risk-soft: #391714;
+    --kumtru-risk-on-soft: #f0a49c;
+    --kumtru-neutral-soft: #1b2333;
+    --kumtru-neutral-on-soft: #b6bfd0;
   }
 }
 
 @theme inline {
+  /* The soft/on-soft pairs, back under their brand names so components keep
+     writing `bg-kumtru-warning-soft` and get whichever theme is on. The three
+     brand-named softs are aliases, not copies: they were already the same hex
+     as their semantic twin, and one definition cannot drift from itself. */
+  --color-kumtru-success-soft: var(--kumtru-success-soft);
+  --color-kumtru-success-on-soft: var(--kumtru-success-on-soft);
+  --color-kumtru-info-soft: var(--kumtru-info-soft);
+  --color-kumtru-info-on-soft: var(--kumtru-info-on-soft);
+  --color-kumtru-warning-soft: var(--kumtru-warning-soft);
+  --color-kumtru-warning-on-soft: var(--kumtru-warning-on-soft);
+  --color-kumtru-risk-soft: var(--kumtru-risk-soft);
+  --color-kumtru-risk-on-soft: var(--kumtru-risk-on-soft);
+  --color-kumtru-neutral-soft: var(--kumtru-neutral-soft);
+  --color-kumtru-neutral-on-soft: var(--kumtru-neutral-on-soft);
+  --color-kumtru-blue-soft: var(--kumtru-info-soft);
+  --color-kumtru-cyan-soft: var(--kumtru-success-soft);
+  --color-kumtru-gold-soft: var(--kumtru-warning-soft);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

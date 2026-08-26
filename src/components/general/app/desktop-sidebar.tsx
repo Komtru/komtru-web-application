@@ -10,6 +10,7 @@ import {
   SidebarSections,
   SidebarSignOut,
 } from "@/components/general/app/sidebar-content";
+import { StartTradeDialog } from "@/components/general/trade/start-trade-dialog";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,6 +27,7 @@ import { cn } from "@/lib/utils";
  */
 export function DesktopSidebar({ className }: { className?: string }) {
   const [addChannelOpen, setAddChannelOpen] = useState(false);
+  const [startTradeOpen, setStartTradeOpen] = useState(false);
 
   return (
     <>
@@ -42,7 +44,7 @@ export function DesktopSidebar({ className }: { className?: string }) {
 
         <SidebarPrompt onAddChannel={() => setAddChannelOpen(true)} />
 
-        <SidebarSections primaryAction />
+        <SidebarSections onPrimaryAction={() => setStartTradeOpen(true)} />
 
         <div className="border-t border-border p-3">
           <SidebarSignOut />
@@ -50,6 +52,7 @@ export function DesktopSidebar({ className }: { className?: string }) {
       </aside>
 
       <AddChannelDialog open={addChannelOpen} onOpenChange={setAddChannelOpen} />
+      <StartTradeDialog open={startTradeOpen} onOpenChange={setStartTradeOpen} />
     </>
   );
 }

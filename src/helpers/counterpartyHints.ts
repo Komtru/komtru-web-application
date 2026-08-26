@@ -1,20 +1,24 @@
 /**
- * Client-side-only memory of the counterpart name a user typed while drafting a
- * trade ("Seller / Merchant Name" or "Buyer / Customer Name" on the Start a New
- * Trade form).
+ * Client-side-only memory of who the user said the counterpart was while
+ * drafting a trade — the label from `CounterpartyField`, which since the resolve
+ * step landed is a confirmed account's name or the destination an invitation was
+ * sent to, rather than free text.
  *
- * `CreateTradePayloadInterface` has no field for this — the real account
- * binding happens later, when the counterpart redeems the Trade Code, not at
- * draft time — so there is nothing for the backend to persist yet. This is a
- * best-effort label for this browser only: it is never sent to the API, never
- * seen by the counterpart, and is superseded the moment a real participant
+ * `CreateTradePayloadInterface` still has no field for it. That is the point
+ * worth understanding: even a counterpart the user has *confirmed against a real
+ * account* is not attached to the trade at create time, because the API offers
+ * nowhere to put them — its create validator is strict and rejects unknown keys.
+ * Binding still happens later and only one way, when someone redeems the Trade
+ * Code. So this remains a best-effort label for this browser only: never sent,
+ * never seen by the counterpart, and superseded the moment a real participant
  * (with a real `displayName`) appears in `ITrade.participants`, which every
  * caller here should prefer over this hint.
  *
- * TODO(product): if this name should survive a reinstall, or the counterpart
- * should see it before they redeem, that needs a real backend field on the
- * create-trade payload — flagged as an open item, not decided unilaterally
- * here.
+ * TODO(backend): a counterparty on the create-trade payload would make this
+ * whole file unnecessary — and would let a confirmed account be bound at draft
+ * time instead of being handed a code to redeem. Invitations already have the
+ * shape for it (`party_invitations.contextId` names the trade); trades do not
+ * read it yet.
  */
 const STORAGE_PREFIX = "kumtru:trade-counterparty-hint:";
 
