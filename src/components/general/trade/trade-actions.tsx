@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldAlert, Truck, XCircle } from "lucide-react";
+import { FileCheck, ShieldAlert, Truck, XCircle } from "lucide-react";
 
 import { StickyActionBar } from "@/components/general/app/sticky-action-bar";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,10 @@ import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toErrorMessage } from "@/helpers/errors";
+import { formatMoney } from "@/helpers/numbers";
 import { isCapacityExceededError } from "@/helpers/tradeCapacity";
 import { useCustomToast } from "@/hooks/useCustomToast";
-import { AcceptanceStatusEnum, TradeRoleEnum, TradeStatusEnum, type ITrade } from "@/interfaces/trade";
+import { TradeRoleEnum, TradeStatusEnum, type ITrade } from "@/interfaces/trade";
 import {
   useAcceptTrade,
   useCancelTrade,
@@ -39,17 +40,15 @@ interface AvailableAction {
 /**
  * Which actions make sense right now, for this specific viewer.
  *
- * The fixed `TradeStatusEnum` (DRAFT → OPEN → AGREED → PROTECTED → IN_PROGRESS
- * → FULFILLED → COMPLETED → SETTLED, plus CANCELLED/DISPUTED/EXPIRED/REFUNDED)
- * is a simplified, already-collapsed view of the fuller state machine in the
- * spec doc — it does not spell out which of the eight mutation endpoints fires
- * on which transition. This mapping is this app's own reasonable reading of
- * that: whoever hasn't accepted yet accepts while the trade is DRAFT/OPEN, the
- * buyer funds once AGREED, the seller ships once PROTECTED, the buyer confirms
- * delivery once IN_PROGRESS (starting the inspection window), either party can
- * dispute anywhere funds are at risk (PROTECTED through FULFILLED), and either
- * party can cancel outright anywhere before funding (D3). Reconcile against the
- * backend's actual transition rules once they're confirmed.
+ * Now reconciled against the backend's own guard table rather than inferred:
+ * `accept` OPEN→AGREED, `fund` AGREED→PROTECTED, `ship` PROTECTED→IN_PROGRESS,
+ * `confirm` IN_PROGRESS→SETTLED, `dispute` from PROTECTED/IN_PROGRESS/FULFILLED,
+ * `cancel` from DRAFT/OPEN/AGREED — never past funding (D3). Every transition is
+ * validated server-side; this only decides what to offer, and offering the wrong
+ * thing produces a 409 rather than a bad state.
+ *
+ * `DRAFT` appears only in the cancel set. No endpoint creates a trade in it —
+ * `POST /trades` goes straight to OPEN — so it is accounted for, not expected.
  */
 function getAvailableActions(trade: ITrade, viewerId: string | undefined): AvailableAction[] {
   const viewer = trade.participants.find((participant) => participant.userId === viewerId);
@@ -59,9 +58,24 @@ function getAvailableActions(trade: ITrade, viewerId: string | undefined): Avail
   const preFunding = [TradeStatusEnum.DRAFT, TradeStatusEnum.OPEN, TradeStatusEnum.AGREED];
   const fundsAtRisk = [TradeStatusEnum.PROTECTED, TradeStatusEnum.IN_PROGRESS, TradeStatusEnum.FULFILLED];
 
+  /**
+   * Accepting the agreement is a two-sided handshake recorded on
+   * `agreement.acceptedBy`: each party accepts once, and the *second* acceptance
+   * is what moves OPEN → AGREED.
+   *
+   * It has nothing to do with `participant.acceptanceStatus`, which this gate
+   * used to read. That field means "is this person on the trade", it is written
+   * as `accepted` by both create and redeem, and no code path ever sets
+   * `invited` — so the old condition was unsatisfiable and this button never
+   * rendered at all. Two distinct meanings, one word.
+   *
+   * Both parties must be present: accepting alone is a 409 ("Waiting for a
+   * counterparty to redeem this trade first").
+   */
   if (
-    (trade.status === TradeStatusEnum.DRAFT || trade.status === TradeStatusEnum.OPEN) &&
-    viewer.acceptanceStatus === AcceptanceStatusEnum.INVITED
+    trade.status === TradeStatusEnum.OPEN &&
+    trade.participants.length >= 2 &&
+    !trade.agreement.acceptedBy.includes(viewer.userId)
   ) {
     actions.push({ key: "accept", label: "Accept Trade Terms" });
   }
@@ -99,6 +113,8 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
   const ship = useShipTrade();
   const dispute = useRaiseDispute();
 
+  const [acceptOpen, setAcceptOpen] = useState(false);
+
   const [shipOpen, setShipOpen] = useState(false);
   const [courier, setCourier] = useState("");
   const [tracking, setTracking] = useState("");
@@ -121,11 +137,10 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
     showToast({ title, description: toErrorMessage(error), type: "error" });
   };
 
+  /** The actions that commit on one tap. `accept`, `ship` and `dispute` each confirm first. */
   function runSimple(key: ActionKey) {
     const payload = { tradeCode: trade.tradeCode };
-    if (key === "accept") {
-      accept.mutate(payload, { onError: onError("Couldn't accept this trade") });
-    } else if (key === "fund") {
+    if (key === "fund") {
       fund.mutate(payload, { onError: onError("Couldn't fund this trade") });
     } else if (key === "confirm") {
       confirm.mutate(payload, { onError: onError("Couldn't confirm delivery") });
@@ -193,6 +208,20 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
             );
           }
 
+          if (action.key === "accept") {
+            return (
+              <Button
+                key={action.key}
+                size="xl"
+                className="w-full"
+                onClick={() => setAcceptOpen(true)}
+              >
+                <FileCheck className="size-4" />
+                {action.label}
+              </Button>
+            );
+          }
+
           if (action.key === "cancel") {
             return (
               <Button
@@ -211,7 +240,6 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
 
           const isFund = action.key === "fund";
           const isPending =
-            (action.key === "accept" && accept.isPending) ||
             (action.key === "fund" && fund.isPending) ||
             (action.key === "confirm" && confirm.isPending);
 
@@ -229,6 +257,70 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
           );
         })}
       </StickyActionBar>
+
+      {/* Accepting is the moment these terms start governing the trade, and the
+          second acceptance moves it to AGREED — so it gets a confirmation step
+          rather than firing on one tap on a scrolling page. The terms themselves
+          are restated here: the card on the page behind this dialog is what the
+          user is agreeing to, and it should not have to be remembered. */}
+      <Dialog open={acceptOpen} onOpenChange={setAcceptOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Accept these terms?</DialogTitle>
+            <DialogDescription>
+              Once both sides accept, these terms govern the trade and the buyer can fund the
+              escrow.
+            </DialogDescription>
+          </DialogHeader>
+
+          <dl className="space-y-2 rounded-kumtru-md bg-secondary p-3 text-xs">
+            <TermRow label="Item" value={trade.subject.title} />
+            <TermRow
+              label="Amount"
+              value={formatMoney(trade.financials.amount, trade.financials.currency)}
+            />
+            <TermRow label="Delivery" value={trade.agreement.deliveryTerms} />
+            {trade.agreement.inspectionPeriod ? (
+              <TermRow label="Inspection" value={trade.agreement.inspectionPeriod} />
+            ) : null}
+            {trade.agreement.cancellationTerms ? (
+              <TermRow label="Cancellation" value={trade.agreement.cancellationTerms} />
+            ) : null}
+          </dl>
+
+          <DialogFooter>
+            <Button
+              size="xl"
+              className="w-full"
+              disabled={accept.isPending}
+              onClick={() => {
+                accept.mutate(
+                  { tradeCode: trade.tradeCode },
+                  {
+                    onSuccess: (updated) => {
+                      setAcceptOpen(false);
+                      showToast({
+                        title:
+                          updated.status === TradeStatusEnum.AGREED
+                            ? "Both sides have accepted"
+                            : "Terms accepted",
+                        description:
+                          updated.status === TradeStatusEnum.AGREED
+                            ? "These terms now govern the trade."
+                            : "Waiting for the other party to accept.",
+                        type: "success",
+                      });
+                    },
+                    onError: onError("Couldn't accept these terms"),
+                  },
+                );
+              }}
+            >
+              {accept.isPending ? <Spinner /> : "Accept Trade Terms"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={shipOpen} onOpenChange={setShipOpen}>
         <DialogContent className="sm:max-w-[420px]">
@@ -299,5 +391,15 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** One term, in the confirmation dialog's summary of what is being agreed to. */
+function TermRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="shrink-0 text-kumtru-slate-500">{label}</dt>
+      <dd className="text-right font-medium">{value}</dd>
+    </div>
   );
 }

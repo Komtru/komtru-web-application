@@ -80,6 +80,15 @@ export interface ITradeParticipant {
   displayName?: string;
   role: TradeRoleEnum;
   joinedAt: string;
+  /**
+   * Whether this person is *on* the trade — not whether they have accepted its
+   * terms. That is `ITradeAgreement.acceptedBy`, and confusing the two is a real
+   * trap: the API writes `ACCEPTED` here for both the creator and the redeemer
+   * the moment each joins, and no path ever writes `INVITED` or `DECLINED`. So
+   * this is effectively a constant today, and reading it as agreement acceptance
+   * reports every trade as agreed by both sides before anyone has agreed to
+   * anything.
+   */
   acceptanceStatus: AcceptanceStatusEnum;
 }
 

@@ -14,19 +14,9 @@ import { toErrorMessage } from "@/helpers/errors";
 import { formatMoney } from "@/helpers/numbers";
 import { humanizeToken } from "@/helpers/strings";
 import { formatInZone, relativeFromNow } from "@/helpers/timezones";
-import {
-  AcceptanceStatusEnum,
-  TradeRoleEnum,
-  type ITradeEvidence,
-} from "@/interfaces/trade";
+import { TradeRoleEnum, TradeStatusEnum, type ITradeEvidence } from "@/interfaces/trade";
 import { useAuthStore } from "@/store/auth.store";
 import { useTradeByCode } from "@/services/trade.services";
-
-const ACCEPTANCE_CLASS: Record<AcceptanceStatusEnum, string> = {
-  [AcceptanceStatusEnum.INVITED]: "bg-kumtru-warning-soft text-kumtru-warning-on-soft",
-  [AcceptanceStatusEnum.ACCEPTED]: "bg-kumtru-success-soft text-kumtru-success-on-soft",
-  [AcceptanceStatusEnum.DECLINED]: "bg-kumtru-risk-soft text-kumtru-risk-on-soft",
-};
 
 const EVIDENCE_ICON: Record<ITradeEvidence["kind"], typeof FileText> = {
   image: ImageIcon,
@@ -118,13 +108,23 @@ export default function TradeDetailPage() {
                         {participant.role === TradeRoleEnum.SELLER ? "Merchant / Seller" : "Buyer"}
                       </p>
                     </div>
+                    {/* Whether this person has accepted the *agreement*, read
+                        from `agreement.acceptedBy`. Not `acceptanceStatus`:
+                        that means "is on the trade", is written as `accepted`
+                        the moment someone creates or redeems it, and so
+                        labelled every party as having accepted terms nobody
+                        had yet agreed to. */}
                     <span
                       className={
                         "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold " +
-                        ACCEPTANCE_CLASS[participant.acceptanceStatus]
+                        (trade.agreement.acceptedBy.includes(participant.userId)
+                          ? "bg-kumtru-success-soft text-kumtru-success-on-soft"
+                          : "bg-kumtru-warning-soft text-kumtru-warning-on-soft")
                       }
                     >
-                      {humanizeToken(participant.acceptanceStatus)}
+                      {trade.agreement.acceptedBy.includes(participant.userId)
+                        ? "Accepted terms"
+                        : "Not yet accepted"}
                     </span>
                   </div>
                 ))}
@@ -155,6 +155,17 @@ export default function TradeDetailPage() {
                 label="Accepted by"
                 value={`${trade.agreement.acceptedBy.length} of ${trade.participants.length}`}
               />
+
+              {/* Why the trade is sitting still, when it is. The accept button
+                  disappears once you have accepted, so without this the user
+                  who moved first has no way to tell that anything is pending. */}
+              {trade.status === TradeStatusEnum.OPEN && trade.participants.length >= 2 ? (
+                <p className="mt-2 text-[11px] leading-relaxed text-kumtru-slate-500">
+                  {viewerId && trade.agreement.acceptedBy.includes(viewerId)
+                    ? "You have accepted. The trade moves on once the other party does too."
+                    : "These terms take effect once both sides accept."}
+                </p>
+              ) : null}
             </SectionCard>
 
             <SectionCard title="Escrow & Payment">
