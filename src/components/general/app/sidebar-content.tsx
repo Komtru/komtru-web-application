@@ -50,7 +50,7 @@ export function SidebarIdentity() {
         </div>
       </div>
 
-      {user ? <VerificationChip level={user.verificationLevel} /> : null}
+      {me ? <VerificationChip level={me.verificationLevel} /> : null}
     </>
   );
 }

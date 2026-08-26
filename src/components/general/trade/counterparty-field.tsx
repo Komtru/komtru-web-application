@@ -68,7 +68,7 @@ export function CounterpartyField({
   value: Counterparty | null;
   onChange: (next: Counterparty | null) => void;
 }) {
-  const user = useAuthStore((state) => state.user);
+  const me = useAuthStore((state) => state.me);
   const lookup = useLookupParty();
 
   const [query, setQuery] = useState("");
@@ -86,7 +86,7 @@ export function CounterpartyField({
   >(null);
 
   const channel = detectLookupChannel(query);
-  const canLookUp = meetsVerificationLevel(user?.verificationLevel, LOOKUP_MIN_LEVEL);
+  const canLookUp = meetsVerificationLevel(me?.verificationLevel, LOOKUP_MIN_LEVEL);
 
   function reset() {
     setQuery("");
