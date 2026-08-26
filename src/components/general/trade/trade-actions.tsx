@@ -273,7 +273,8 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
           <DialogHeader>
             <DialogTitle>Raise a Dispute</DialogTitle>
             <DialogDescription>
-              This hands the trade to Komtru's dispute team. Funds stay protected while it's reviewed.
+              This hands the trade to Komtru&apos;s dispute team. Funds stay protected while it&apos;s
+              reviewed.
             </DialogDescription>
           </DialogHeader>
 
