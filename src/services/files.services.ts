@@ -1,8 +1,18 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import type { IResponse } from "@/interfaces/IAxios";
-import type { CreateUploadUrlPayload, FinalizedFile, UploadTicket } from "@/interfaces/files";
+import type {
+  CreateUploadUrlPayload,
+  FinalizedFile,
+  RetrievedFile,
+  UploadTicket,
+} from "@/interfaces/files";
 import http from "@/services/base";
+
+export const fileKeys = {
+  all: ["files"] as const,
+  detail: (id: string) => [...fileKeys.all, "detail", id] as const,
+};
 
 /**
  * The three-step upload.
@@ -37,6 +47,31 @@ export function useFinalizeUpload() {
       const response = await http.post<IResponse<FinalizedFile>>({
         url: `files/${fileId}/finalize`,
       });
+      return response.data;
+    },
+  });
+}
+
+/**
+ * Resolves a stored file id into a URL something can actually render.
+ *
+ * A ticket attachment is `PRIVATE_CASE`, so what comes back is a SIGNED url with an expiry — which is
+ * why this is a query keyed on the id rather than a field baked into the message. `staleTime` is
+ * deliberately short of any plausible signature lifetime: re-resolving costs one cheap call, and
+ * serving a cached url past its expiry shows the user a broken image.
+ *
+ * A 403 here is a normal outcome, not a bug — an agent's own upload is a file this customer was never
+ * granted. Hence no retry: the answer will not change, and the caller renders the refusal as an
+ * unavailable chip.
+ */
+export function useRetrieveFile(fileId: string | undefined) {
+  return useQuery<RetrievedFile>({
+    queryKey: fileKeys.detail(fileId ?? ""),
+    enabled: Boolean(fileId),
+    staleTime: 4 * 60 * 1_000,
+    retry: false,
+    queryFn: async () => {
+      const response = await http.get<IResponse<RetrievedFile>>({ url: `files/${fileId}` });
       return response.data;
     },
   });

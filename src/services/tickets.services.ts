@@ -54,8 +54,11 @@ export function useCreateTicket() {
   const queryClient = useQueryClient();
 
   return useMutation<Ticket, unknown, NewTicketPayload>({
-    mutationFn: async (payload) => {
-      const response = await http.post<IResponse<Ticket>>({ url: "tickets", body: payload });
+    mutationFn: async ({ attachmentRefs, ...rest }) => {
+      const response = await http.post<IResponse<Ticket>>({
+        url: "tickets",
+        body: attachmentRefs?.length ? { ...rest, attachmentRefs } : rest,
+      });
       return response.data;
     },
     onSuccess: () => {
@@ -68,10 +71,12 @@ export function useReplyToTicket() {
   const queryClient = useQueryClient();
 
   return useMutation<TicketMessage, unknown, ReplyPayload>({
-    mutationFn: async ({ ticketId, body }) => {
+    mutationFn: async ({ ticketId, body, attachmentRefs }) => {
       const response = await http.post<IResponse<TicketMessage>>({
         url: `tickets/${ticketId}/reply`,
-        body: { body },
+        // Omitted rather than sent empty when there is nothing attached — the API defaults it to `[]`
+        // itself, and an explicit `[]` on every text-only reply is noise in the request log.
+        body: attachmentRefs?.length ? { body, attachmentRefs } : { body },
       });
       return response.data;
     },

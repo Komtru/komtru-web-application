@@ -8,6 +8,7 @@ import { Send } from "lucide-react";
 import { ScreenHeader } from "@/components/general/app/screen-header";
 import { StickyActionBar } from "@/components/general/app/sticky-action-bar";
 import { SafetyCallout } from "@/components/general/safety-callout";
+import { AttachmentChips, AttachmentPicker } from "@/components/general/ticket/attachment-tray";
 import { MessageBubble } from "@/components/general/ticket/message-bubble";
 import { TicketStatusChip } from "@/components/general/ticket/ticket-status-chip";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { toErrorMessage } from "@/helpers/errors";
 import { relativeFromNow } from "@/helpers/timezones";
 import { useCustomToast } from "@/hooks/useCustomToast";
 import { useDeviceTimeZone } from "@/hooks/useDeviceTimeZone";
+import { useTicketAttachments } from "@/hooks/useTicketAttachments";
 import { useMyTicket, useReopenTicket, useReplyToTicket } from "@/services/tickets.services";
 
 const TERMINAL_STATUSES = new Set(["RESOLVED", "CLOSED"]);
@@ -53,6 +55,8 @@ export default function TicketDetailPage() {
   const [reopenReason, setReopenReason] = useState("");
   const [reopenOpen, setReopenOpen] = useState(false);
 
+  const attachments = useTicketAttachments();
+
   const ticket = data?.ticket;
   const isTerminal = ticket ? TERMINAL_STATUSES.has(ticket.status) : false;
   const canReopen =
@@ -60,13 +64,28 @@ export default function TicketDetailPage() {
     Boolean(ticket?.reopenableUntil) &&
     DateTime.fromISO(ticket!.reopenableUntil!) > DateTime.now();
 
+  /**
+   * Text is still required even when something is attached: the API's `body` is `min(1)`, and the
+   * alternative — this screen inventing a body like "(attachment)" — would put words the customer never
+   * typed into a support record they may later be held to.
+   *
+   * Uploads still in flight block sending; ones that already failed do not. See the same split on the
+   * new-ticket screen for why.
+   */
+  const canSend = Boolean(draft.trim()) && !reply.isPending && !attachments.isUploading;
+
   function handleSend() {
-    if (!draft.trim() || reply.isPending) return;
+    if (!canSend) return;
 
     reply.mutate(
-      { ticketId: params.id, body: draft.trim() },
+      { ticketId: params.id, body: draft.trim(), attachmentRefs: attachments.readyRefs },
       {
-        onSuccess: () => setDraft(""),
+        onSuccess: () => {
+          setDraft("");
+          // Cleared together: the tray's contents have been sent, and leaving them on screen would
+          // invite a second send that attaches the same files to a new message.
+          attachments.reset();
+        },
         onError: (err) =>
           showToast({
             title: "Message not sent",
@@ -194,7 +213,17 @@ export default function TicketDetailPage() {
 
           {!isTerminal ? (
             <StickyActionBar>
+              {/* Chips get their own row above the composer, so a wrapped line of them never pushes
+                  the send button off the edge on a narrow phone. */}
+              <AttachmentChips tray={attachments} disabled={reply.isPending} />
+
               <div className="flex items-end gap-2">
+                <AttachmentPicker
+                  tray={attachments}
+                  disabled={reply.isPending}
+                  onNotice={(message) => showToast({ title: message, type: "info" })}
+                  compact
+                />
                 <Textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
@@ -204,7 +233,7 @@ export default function TicketDetailPage() {
                 />
                 <Button
                   size="icon-lg"
-                  disabled={!draft.trim() || reply.isPending}
+                  disabled={!canSend}
                   onClick={handleSend}
                   aria-label="Send reply"
                 >
