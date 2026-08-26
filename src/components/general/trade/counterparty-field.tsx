@@ -276,7 +276,7 @@ export function CounterpartyField({
               invited them, and a publicId is not an answer to that. Said here
               rather than discovered as a 403, which would land after the trade
               has already been created. */}
-          {!user?.username ? (
+          {!me?.username ? (
             <p className="mt-2 text-[11px] leading-relaxed text-kumtru-warning-on-soft">
               Choose your own username first — an invitation has to say who it came from.
             </p>
