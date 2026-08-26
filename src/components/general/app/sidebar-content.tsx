@@ -108,28 +108,33 @@ export function SidebarPrompt({
 /**
  * The navigation lists: the four tab destinations, then everything else.
  *
- * `primaryAction` adds the New trade button at the top. Off by default, because
- * on a phone that action already owns the raised circle in the middle of the tab
- * bar; the desktop rail turns it on, since there is no tab bar up there to hold
- * it.
+ * Passing `onPrimaryAction` adds the New trade button at the top. Omitted on a
+ * phone, because that action already owns the raised circle in the middle of the
+ * tab bar; the desktop rail passes one, since there is no tab bar up there to
+ * hold it. It is a handler rather than a link because starting a trade is a
+ * dialog, not a destination — see `StartTradeDialog`.
  */
 export function SidebarSections({
   onNavigate,
-  primaryAction = false,
+  onPrimaryAction,
 }: {
   onNavigate?: () => void;
-  primaryAction?: boolean;
+  onPrimaryAction?: () => void;
 }) {
   const pathname = usePathname();
 
   return (
     <nav aria-label="Sections" className="flex-1 overflow-y-auto p-3">
-      {primaryAction ? (
-        <Button asChild className="mb-3 w-full">
-          <Link href={centerAction.href} onClick={onNavigate}>
-            <centerAction.icon className="size-4" aria-hidden="true" />
-            {centerAction.label}
-          </Link>
+      {onPrimaryAction ? (
+        <Button
+          className="mb-3 w-full"
+          onClick={() => {
+            onNavigate?.();
+            onPrimaryAction();
+          }}
+        >
+          <centerAction.icon className="size-4" aria-hidden="true" />
+          {centerAction.label}
         </Button>
       ) : null}
 
@@ -184,7 +189,13 @@ export function SidebarSignOut({ onNavigate }: { onNavigate?: () => void }) {
     <Link
       href="/auth/logout"
       onClick={onNavigate}
-      className={cn(ROW_CLASS, "font-semibold text-kumtru-risk hover:bg-kumtru-risk-soft")}
+      className={cn(
+        ROW_CLASS,
+        // The one row whose ink is the hue rather than an on-soft: in dark mode
+        // #c0392e is too close to both the rail and its own hover tint, so the
+        // dark theme borrows the risk-soft foreground.
+        "font-semibold text-kumtru-risk hover:bg-kumtru-risk-soft dark:text-kumtru-risk-on-soft",
+      )}
     >
       <LogOut className="size-4 shrink-0" aria-hidden="true" />
       Sign out
