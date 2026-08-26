@@ -15,8 +15,8 @@ import { useNotifications } from "@/realtime/realtime-providers";
  * count of trades waiting on this user; a dot that is always dark is better than
  * one wired to the wrong number.
  */
-export function AppTabBar() {
+export function AppTabBar({ className }: { className?: string }) {
   const { unreadCount } = useNotifications();
 
-  return <BottomTabBar unread={unreadCount} />;
+  return <BottomTabBar unread={unreadCount} className={className} />;
 }

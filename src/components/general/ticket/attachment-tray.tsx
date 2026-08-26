@@ -41,10 +41,21 @@ export function AttachmentPicker({
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = event.target.files;
+    const input = event.target;
+
+    /**
+     * Copied out of the `FileList` BEFORE the input is cleared, not after.
+     *
+     * `input.files` is live: the same object is handed back on every read, and emptying the input
+     * empties that object in place. Holding the list across `input.value = ""` therefore hands the
+     * tray an empty selection — silently, since a selection of nothing is indistinguishable from a
+     * cancelled dialog. `Array.from` snapshots the `File`s first, which are unaffected.
+     */
+    const files = input.files ? Array.from(input.files) : [];
+
     // Cleared so re-picking the same file after removing it still fires a change event.
-    event.target.value = "";
-    if (!files?.length) return;
+    input.value = "";
+    if (files.length === 0) return;
 
     const notice = tray.add(files);
     if (notice) onNotice?.(notice);
