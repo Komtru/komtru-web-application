@@ -45,6 +45,18 @@ export function toMajorUnits(minorUnits: number): number {
   return minorUnits / 100;
 }
 
+/**
+ * File sizes for attachment chips: 812 KB, 2.4 MB.
+ *
+ * Decimal units, not binary — this sits next to a limit the API states in MB, and showing "9.5 MB" for
+ * a file the server counts as over 10,000,000 bytes is how a rejection looks like a bug.
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1_000) return `${bytes} B`;
+  if (bytes < 1_000_000) return `${Math.round(bytes / 1_000)} KB`;
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
 /** Protection fee, in minor units. Kept here so every surface quotes the same number. */
 export const PROTECTION_FEE_RATE = 0.015;
 

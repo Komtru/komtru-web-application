@@ -1,3 +1,4 @@
+import { MessageAttachments } from "@/components/general/ticket/message-attachments";
 import { formatInZone } from "@/helpers/timezones";
 import type { TicketMessage } from "@/interfaces/tickets";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,9 @@ export function MessageBubble({
         )}
       >
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.body}</p>
+
+        <MessageAttachments refs={message.attachmentRefs} fromCustomer={fromCustomer} />
+
         <p
           className={cn(
             "mt-1 text-[10px]",

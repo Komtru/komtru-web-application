@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ScreenHeader } from "@/components/general/app/screen-header";
 import { StickyActionBar } from "@/components/general/app/sticky-action-bar";
 import { SafetyCallout } from "@/components/general/safety-callout";
+import { AttachmentChips, AttachmentPicker } from "@/components/general/ticket/attachment-tray";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { toErrorMessage } from "@/helpers/errors";
 import { useCustomToast } from "@/hooks/useCustomToast";
+import { useTicketAttachments } from "@/hooks/useTicketAttachments";
 import { SUPPORT_TOPICS } from "@/interfaces/tickets";
 import { useCreateTicket } from "@/services/tickets.services";
 
@@ -38,14 +40,33 @@ export default function NewTicketPage() {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = Boolean(queueCode) && category.trim().length > 0 && body.trim().length > 0;
+  const attachments = useTicketAttachments();
+
+  /**
+   * `isUploading` gates submit but `hasFailures` does not.
+   *
+   * Waiting on files still in flight is the difference between attaching them and silently dropping
+   * them. A file that has already failed is a decision the customer has made visible to them — they can
+   * retry it, remove it, or file without it — and blocking on one would trap someone whose 12MB photo
+   * is never going to fit behind a button that will not explain itself.
+   */
+  const canSubmit =
+    Boolean(queueCode) &&
+    category.trim().length > 0 &&
+    body.trim().length > 0 &&
+    !attachments.isUploading;
 
   function handleSubmit() {
     if (!canSubmit || isPending) return;
     setError(null);
 
     createTicket(
-      { queueCode, category: category.trim(), body: body.trim() },
+      {
+        queueCode,
+        category: category.trim(),
+        body: body.trim(),
+        attachmentRefs: attachments.readyRefs,
+      },
       {
         onSuccess: (ticket) => {
           showToast({ title: "Ticket submitted", type: "success" });
@@ -121,6 +142,20 @@ export default function NewTicketPage() {
             </div>
           </div>
 
+          <div>
+            <Label className="text-[11px] font-semibold tracking-wide uppercase">Attachments</Label>
+            <p className="mt-0.5 text-[11px] text-kumtru-slate-400">
+              A screenshot or receipt saves a round trip. Images and PDFs.
+            </p>
+            <AttachmentChips tray={attachments} disabled={isPending} className="mt-2" />
+            <AttachmentPicker
+              tray={attachments}
+              disabled={isPending}
+              onNotice={(message) => showToast({ title: message, type: "info" })}
+              className="mt-2"
+            />
+          </div>
+
           {error ? <p className="text-xs text-kumtru-risk">{error}</p> : null}
         </div>
       </div>
@@ -132,7 +167,15 @@ export default function NewTicketPage() {
           disabled={!canSubmit || isPending}
           onClick={handleSubmit}
         >
-          {isPending ? <Spinner /> : "Submit"}
+          {isPending ? (
+            <Spinner />
+          ) : attachments.isUploading ? (
+            // Named rather than left as a dead grey button — the one disabled state here that resolves
+            // on its own, so the customer needs to know it is worth waiting a moment for.
+            "Uploading…"
+          ) : (
+            "Submit"
+          )}
         </Button>
       </StickyActionBar>
     </div>

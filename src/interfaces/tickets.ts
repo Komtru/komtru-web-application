@@ -89,15 +89,22 @@ export const SUPPORT_TOPICS: { queueCode: string; label: string }[] = [
   { queueCode: "GENERAL_SUPPORT", label: "Something else" },
 ];
 
+/**
+ * `attachmentRefs` on both: M20 file ids that have already been through the three-step upload and been
+ * FINALIZED. Sending an id that hasn't been finalized is accepted here and resolves to nothing later,
+ * so the composer never hands one over before `POST /files/:id/finalize` has returned.
+ */
 export interface NewTicketPayload {
   queueCode: string;
   category: string;
   body: string;
+  attachmentRefs?: string[];
 }
 
 export interface ReplyPayload {
   ticketId: string;
   body: string;
+  attachmentRefs?: string[];
 }
 
 export interface ReopenPayload {
