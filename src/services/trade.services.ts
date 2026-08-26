@@ -135,9 +135,9 @@ export function useShipTrade() {
   const queryClient = useQueryClient();
 
   return useMutation<ITrade, unknown, ShipTradePayloadInterface>({
-    mutationFn: async (payload) => {
+    mutationFn: async ({tradeCode, ...payload}) => {
       const response = await http.post<IResponse<ITrade>>({
-        url: `trades/${payload.tradeCode}/ship`,
+        url: `trades/${tradeCode}/ship`,
         body: payload,
       });
       return response.data;
