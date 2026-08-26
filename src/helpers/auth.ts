@@ -1,7 +1,35 @@
-import type { FactorHint, NextStep, Platform } from "@/interfaces/auth";
+import type { FactorHint, NextStep, Platform, VerificationLevel } from "@/interfaces/auth";
 
 /** This is a browser. The API also knows about IOS and ANDROID. */
 export const PLATFORM: Platform = "WEB";
+
+/**
+ * `VerificationLevel` is a ladder, and several endpoints state a minimum rung
+ * rather than an exact level. The order lives here, next to nothing else that
+ * could disagree with it.
+ */
+const LEVEL_ORDER: readonly VerificationLevel[] = [
+  "UNVERIFIED",
+  "CONTACT_VERIFIED",
+  "IDENTITY_VERIFIED",
+  "BUSINESS_VERIFIED",
+  "ENHANCED",
+];
+
+/**
+ * Is this account at or above `minimum`?
+ *
+ * Mirrors the API's own gate so a screen can explain a 403 before provoking one.
+ * It does not replace the gate: the server decides, and an unknown level from a
+ * newer API is treated as not meeting the bar rather than as passing it.
+ */
+export function meetsVerificationLevel(
+  level: VerificationLevel | undefined,
+  minimum: VerificationLevel,
+): boolean {
+  const held = level ? LEVEL_ORDER.indexOf(level) : -1;
+  return held >= 0 && held >= LEVEL_ORDER.indexOf(minimum);
+}
 
 /**
  * The terms version recorded against a signup.
