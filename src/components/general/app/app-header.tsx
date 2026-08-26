@@ -31,13 +31,14 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   const atTabRoot = customerTabs.some((tab) => tab.href === pathname);
 
   return (
-    <header className="relative flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 pt-[max(0.625rem,env(safe-area-inset-top))] pb-2.5">
+    <header className="relative flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 pt-[max(0.625rem,env(safe-area-inset-top))] pb-2.5 lg:px-5">
       <div className="flex items-center">
+        {/* Gone from `lg` up: the rail already has every row this would open. */}
         <button
           type="button"
           onClick={onOpenMenu}
           aria-label="Open menu"
-          className="flex size-9 items-center justify-center rounded-full text-kumtru-slate-600 active:bg-secondary"
+          className="flex size-9 items-center justify-center rounded-full text-kumtru-slate-600 active:bg-secondary lg:hidden"
         >
           <Menu className="size-[18px]" aria-hidden="true" />
         </button>
@@ -55,8 +56,10 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
       </div>
 
       {/* Absolutely centred, so the lockup does not shuffle sideways each time
-          the back button appears or disappears between screens. */}
-      <BrandLockup className="absolute left-1/2 -translate-x-1/2 text-sm" />
+          the back button appears or disappears between screens. Dropped from
+          `lg` up, where the rail carries the brand and a second copy centred
+          over the content pane would only read as a stray label. */}
+      <BrandLockup className="absolute left-1/2 -translate-x-1/2 text-sm lg:hidden" />
 
       <Link
         href="/alerts"

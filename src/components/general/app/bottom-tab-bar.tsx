@@ -37,11 +37,13 @@ const splitAt = Math.ceil(customerTabs.length / 2);
 export function BottomTabBar({
   unread = 0,
   needsAction = 0,
+  className,
 }: {
   /** Unread messages. */
   unread?: number;
   /** Trades waiting on something from this user. */
   needsAction?: number;
+  className?: string;
 }) {
   const pathname = usePathname();
   const counters = { unread, needsAction };
@@ -95,7 +97,10 @@ export function BottomTabBar({
   return (
     <nav
       aria-label="Primary"
-      className="relative flex shrink-0 border-t border-border bg-card pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      className={cn(
+        "relative flex shrink-0 border-t border-border bg-card pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+        className,
+      )}
     >
       {customerTabs.slice(0, splitAt).map(renderTab)}
 
