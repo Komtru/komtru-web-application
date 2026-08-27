@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { NotificationProvider } from "@/realtime/notification-provider";
 import { SocketProvider } from "@/realtime/socket-provider";
+import { TradeSync } from "@/realtime/trade-sync";
 import { useAuthStore } from "@/store/auth.store";
 
 /**
@@ -28,10 +29,14 @@ export function RealtimeProviders({ children }: { children: ReactNode }) {
 
   return (
     <SocketProvider token={token}>
-      <NotificationProvider>{children}</NotificationProvider>
+      <NotificationProvider>
+        {/* Cache sync, not UI: it holds the `trade.updated` subscription for the life of the shell. */}
+        <TradeSync>{children}</TradeSync>
+      </NotificationProvider>
     </SocketProvider>
   );
 }
 
 export { useSocket, useSocketEvent, useSocketReconnect } from "@/realtime/socket-provider";
 export { useNotifications } from "@/realtime/notification-provider";
+export { TradeSync } from "@/realtime/trade-sync";
