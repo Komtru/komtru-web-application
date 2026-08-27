@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Check, Copy, MailCheck, ShieldCheck } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  CircleCheck,
+  Copy,
+  CreditCard,
+  MailCheck,
+  Share2,
+} from "lucide-react";
 
 import { SafetyCallout } from "@/components/general/safety-callout";
 import {
@@ -28,13 +36,14 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { HOME_ROUTE } from "@/helpers/auth";
 import { setCounterpartyHint } from "@/helpers/counterpartyHints";
 import { toErrorMessage } from "@/helpers/errors";
-import { toMinorUnits } from "@/helpers/numbers";
+import { formatMoney, toMinorUnits } from "@/helpers/numbers";
 import { counterpartRole, inviteChannelLabel } from "@/helpers/party";
 import { isCapacityExceededError } from "@/helpers/tradeCapacity";
 import { useCustomToast } from "@/hooks/useCustomToast";
-import { TradeRoleEnum, TradeSubjectTypeEnum } from "@/interfaces/trade";
+import { TradeRoleEnum, TradeSubjectTypeEnum, type ITrade } from "@/interfaces/trade";
 import { useInviteParty } from "@/services/party.services";
 import { useCreateTrade } from "@/services/trade.services";
 
@@ -59,6 +68,32 @@ const ROLE_COPY: Record<
 
 const SUBTITLE =
   "Draft trade agreement terms and generate a unique Trade Code for independent verification.";
+
+/**
+ * The message the counterpart actually receives, ready to paste into WhatsApp.
+ *
+ * It names the app rather than linking into it, and says so explicitly. The
+ * whole point of a Trade Code is that the counterpart reaches Komtru by a route
+ * they chose — a link pasted into a chat is exactly the thing this platform
+ * tells people not to trust, and it would be incoherent to send one here. The
+ * same warning appears on `/trades` ("never through a link they send"), so this
+ * is that rule applied to our own outgoing copy.
+ *
+ * The amount and item are included because a code alone cannot be checked: the
+ * counterpart should be able to see, before they enter anything, whether the
+ * figures match what was agreed.
+ */
+function shareInstructions(trade: ITrade): string {
+  return [
+    `I've started a protected Komtru trade for ${formatMoney(trade.financials.amount, trade.financials.currency)} — ${trade.subject.title}.`,
+    "",
+    `Trade Code: ${trade.tradeCode}`,
+    "",
+    "To join: open the Komtru app (or search for Komtru yourself — don't use a link anyone sends you), enter this code, and review the terms before funding.",
+    "",
+    "Komtru holds the payment until delivery is confirmed. Never pay outside a trade.",
+  ].join("\n");
+}
 
 interface FormState {
   role: TradeRoleEnum;
@@ -116,11 +151,16 @@ export function StartTradeDialog({
 
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   /**
-   * The trade, once it exists. Both halves are kept: the code is what the user
-   * copies, the uuid is what an invitation retry has to name.
+   * The trade itself, once it exists — not just its code.
+   *
+   * The success screen quotes the amount and the item back to the user, and it
+   * should quote what the API actually recorded rather than what was typed into
+   * the form: the two can differ (minor-unit rounding, a trimmed title), and the
+   * number beside a trade code needs to be the number in the trade.
    */
-  const [created, setCreated] = useState<{ code: string; tradeId: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [created, setCreated] = useState<ITrade | null>(null);
+  /** Which of the two copy buttons last succeeded, so only that one confirms. */
+  const [copied, setCopied] = useState<"code" | "instructions" | null>(null);
 
   const copy = ROLE_COPY[form.role];
   const capacityExceeded = isCapacityExceededError(createTrade.error);
@@ -135,7 +175,7 @@ export function StartTradeDialog({
   function resetAndClose() {
     setForm(INITIAL_STATE);
     setCreated(null);
-    setCopied(false);
+    setCopied(null);
     createTrade.reset();
     invite.reset();
     onOpenChange(false);
@@ -184,7 +224,7 @@ export function StartTradeDialog({
           // `CreateTradePayloadInterface` still has no counterparty field, so
           // this label remains local to the browser — see `counterpartyHints`.
           setCounterpartyHint(trade.tradeCode, counterparty.label);
-          setCreated({ code: trade.tradeCode, tradeId: trade.tradeId });
+          setCreated(trade);
 
           if (counterparty.kind === "invite") sendInvite(trade.tradeId, counterparty);
         },
@@ -196,22 +236,29 @@ export function StartTradeDialog({
     );
   }
 
-  async function handleCopyCode() {
-    if (!created) return;
+  async function copyToClipboard(what: "code" | "instructions", text: string) {
     try {
-      await navigator.clipboard.writeText(created.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2000);
     } catch {
-      showToast({ title: "Couldn't copy the code", type: "error" });
+      showToast({
+        title: what === "code" ? "Couldn't copy the code" : "Couldn't copy the instructions",
+        type: "error",
+      });
     }
   }
 
   function handleViewTrade() {
     if (!created) return;
-    const code = created.code;
+    const code = created.tradeCode;
     resetAndClose();
     router.push(`/trades/${code}`);
+  }
+
+  function handleReturnToDashboard() {
+    resetAndClose();
+    router.push(HOME_ROUTE);
   }
 
   return (
@@ -220,28 +267,76 @@ export function StartTradeDialog({
         {created ? (
           <>
             <DialogHeader>
-              <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-kumtru-success-soft">
-                <ShieldCheck className="size-5 text-kumtru-success-on-soft" aria-hidden="true" />
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-kumtru-success-soft">
+                <CircleCheck
+                  className="size-7 text-kumtru-success-on-soft"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
               </div>
-              <DialogTitle className="text-center">Trade Code Generated</DialogTitle>
+              <DialogTitle className="text-center text-xl">Trade Agreement Generated</DialogTitle>
               <DialogDescription className="text-center">
-                Share this code with {form.counterparty?.label ?? "your counterpart"} so they can
-                verify and join the trade.
+                Share this Trade Code with {form.counterparty?.label ?? "your counterpart"} to
+                review terms and fund the escrow.
               </DialogDescription>
             </DialogHeader>
 
-            <button
-              type="button"
-              onClick={handleCopyCode}
-              className="flex items-center justify-between rounded-kumtru-md border border-dashed border-kumtru-blue/40 bg-kumtru-blue-soft px-4 py-3.5"
-            >
-              <span className="font-mono text-lg font-semibold tracking-wide">{created.code}</span>
-              {copied ? (
-                <Check className="size-4 text-kumtru-success" aria-hidden="true" />
-              ) : (
-                <Copy className="size-4 text-kumtru-slate-500" aria-hidden="true" />
-              )}
-            </button>
+            {/* The code, quoted with the two figures that make it checkable.
+                Rendered as the API returned it — no grouping or dashes inserted,
+                because the counterpart has to type back exactly this string and
+                a prettified version is one they would have to un-prettify. */}
+            {/* The hairline is not decoration: in dark mode this card and the
+                dialog behind it are both near-black, and without an edge the
+                code would float in the page rather than sit on a plate. */}
+            <div className="rounded-kumtru-md border border-white/10 bg-kumtru-navy px-4 py-5 text-center">
+              <p className="text-[10.5px] font-bold tracking-[0.14em] text-white/45 uppercase">
+                Official Trade Code
+              </p>
+              <p className="trade-code mt-1.5 text-3xl font-bold break-all text-kumtru-cyan">
+                {created.tradeCode}
+              </p>
+              <p className="mt-2 text-[11.5px] text-white/60">
+                Amount:{" "}
+                <span className="font-semibold text-white/85">
+                  {formatMoney(created.financials.amount, created.financials.currency)}
+                </span>{" "}
+                · {created.subject.title}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-auto flex-col gap-1 py-3 whitespace-normal"
+                onClick={() => void copyToClipboard("code", created.tradeCode)}
+              >
+                {copied === "code" ? (
+                  <Check className="size-4 text-kumtru-success" aria-hidden="true" />
+                ) : (
+                  <Copy className="size-4" aria-hidden="true" />
+                )}
+                <span className="text-[12.5px] leading-tight font-semibold">
+                  {copied === "code" ? "Code copied" : "Copy Trade Code"}
+                </span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-auto flex-col gap-1 py-3 whitespace-normal"
+                onClick={() => void copyToClipboard("instructions", shareInstructions(created))}
+              >
+                {copied === "instructions" ? (
+                  <Check className="size-4 text-kumtru-success" aria-hidden="true" />
+                ) : (
+                  <Share2 className="size-4" aria-hidden="true" />
+                )}
+                <span className="text-[12.5px] leading-tight font-semibold">
+                  {copied === "instructions" ? "Message copied" : "Copy Share Instructions"}
+                </span>
+              </Button>
+            </div>
 
             {/* The invitation's own outcome, reported separately from the trade's.
                 It is a second request against a trade that already exists, so a
@@ -280,8 +375,23 @@ export function StartTradeDialog({
               ) : null
             ) : null}
 
+            {/* Funding is not done here. It is an action on the trade, gated on
+                both parties having accepted the terms, so this hands the user to
+                the screen that owns the whole sequence rather than starting a
+                payment the trade is not yet eligible for. */}
             <Button size="xl" className="w-full" onClick={handleViewTrade}>
-              View Trade
+              <CreditCard className="size-4" aria-hidden="true" />
+              Review Terms &amp; Proceed to Fund
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full font-semibold"
+              onClick={handleReturnToDashboard}
+            >
+              Return to Dashboard
             </Button>
           </>
         ) : (
