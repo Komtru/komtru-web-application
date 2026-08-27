@@ -33,7 +33,7 @@ export default function PassportPage() {
           className="bg-white/15 text-white"
         />
         <p className="mt-2.5 text-base font-semibold">{displayName}</p>
-        {user ? <VerificationChip level={user.verificationLevel} className="mt-1.5" /> : null}
+        {me ? <VerificationChip level={me.verificationLevel} className="mt-1.5" /> : null}
       </section>
 
       <div className="mt-4">
