@@ -264,8 +264,18 @@
 }
 
 /* App-level utilities */
+
+/**
+ * A Trade Code, wherever one is displayed.
+ *
+ * Tracked OPEN rather than tight. A trade code is read off a screen, spoken down
+ * a phone and typed into another device by someone who has to get all of it
+ * right — so the characters need air between them. `tracking-tight`, which this
+ * carried while nothing used it, optimises for a compact line, which is the
+ * wrong thing to optimise a code for.
+ */
 @utility trade-code {
-  @apply font-mono tracking-tight tabular-nums;
+  @apply font-mono tracking-[0.08em] tabular-nums;
 }
 
 @utility surface-card {
