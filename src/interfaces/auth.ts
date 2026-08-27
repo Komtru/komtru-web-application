@@ -381,6 +381,23 @@ export interface ProvidersResult {
   providers: SocialProvider[];
 }
 
+/**
+ * A provider already attached to this account, from `GET /me/social-identities`.
+ *
+ * The presence of a row IS the "this account may sign in with this provider"
+ * permission — there is no separate flag. The API keys it on the provider's
+ * subject id rather than on the email, so a row survives the user changing their
+ * address at Google, and an unlinked row is excluded rather than returned with a
+ * status.
+ */
+export interface SocialIdentityRow {
+  provider: SocialProvider;
+  providerUsername: string | null;
+  linkedAt: string;
+  /** Null until the provider has actually been used to sign in. */
+  lastUsedAt: string | null;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Contact channels                                                           */
 /* -------------------------------------------------------------------------- */

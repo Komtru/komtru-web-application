@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { CircleX } from "lucide-react";
 
 import { AuthHeading } from "@/components/forms/auth-heading";
@@ -12,10 +13,21 @@ import { HOME_ROUTE } from "@/helpers/auth";
 import { toErrorMessage } from "@/helpers/errors";
 import { useCustomToast } from "@/hooks/useCustomToast";
 import { isSocialLinkResult, type SocialProviderSlug } from "@/interfaces/auth";
-import { useSocialCallback } from "@/services/auth.services";
+import { authKeys, useSocialCallback } from "@/services/auth.services";
 import { useAuthStore } from "@/store/auth.store";
 
 const SUPPORTED: SocialProviderSlug[] = ["google", "apple", "facebook"];
+
+const PROVIDER_LABEL: Record<SocialProviderSlug, string> = {
+  google: "Google",
+  apple: "Apple",
+  facebook: "Facebook",
+};
+
+/** Falls back to the slug, so an unexpected provider still reads as a name. */
+function providerLabel(slug: string): string {
+  return PROVIDER_LABEL[slug as SocialProviderSlug] ?? slug;
+}
 
 /**
  * Where the provider sends the browser back to.
@@ -31,6 +43,7 @@ function SocialCallback() {
   const { showToast } = useCustomToast();
   const { mutateAsync: completeCallback } = useSocialCallback();
   const startSession = useAuthStore((state) => state.startSession);
+  const queryClient = useQueryClient();
 
   const [error, setError] = useState<string | null>(null);
   const attempted = useRef(false);
@@ -63,12 +76,17 @@ function SocialCallback() {
           state: string;
         });
 
-        // A callback with an existing session LINKS rather than signs in. Nothing
-        // in this app reaches that branch today, but answering it honestly beats
-        // treating a link confirmation as a failed login.
+        // A callback with an existing session LINKS rather than signs in — the
+        // "Connect" rows in Settings are what reach this branch. Back to where
+        // the user pressed the button, not to the app's home: they were managing
+        // their account, not signing in, and the answer belongs on that screen.
+        //
+        // The identity list is now stale by definition, so it is dropped rather
+        // than left to show the provider as unconnected on arrival.
         if (isSocialLinkResult(result)) {
-          showToast({ title: "Account linked", type: "success" });
-          router.replace(HOME_ROUTE);
+          void queryClient.invalidateQueries({ queryKey: authKeys.socialIdentities() });
+          showToast({ title: `${providerLabel(provider)} connected`, type: "success" });
+          router.replace("/settings");
           return;
         }
 
@@ -90,7 +108,17 @@ function SocialCallback() {
     }
 
     void exchange();
-  }, [code, completeCallback, provider, providerError, router, showToast, startSession, state]);
+  }, [
+    code,
+    completeCallback,
+    provider,
+    providerError,
+    queryClient,
+    router,
+    showToast,
+    startSession,
+    state,
+  ]);
 
   if (error) {
     return (

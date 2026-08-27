@@ -70,6 +70,31 @@ export const HOME_ROUTE = "/trades";
  * `nextStep` never blocks entry to the app — a user with one verified channel
  * can browse and buy — so this is prompt copy, not a redirect.
  */
+/**
+ * The nudge that outlives onboarding.
+ *
+ * `nextStep` goes null once a username, a second channel and a password are all
+ * in place — and at that point the sidebar had nothing more to say, even though
+ * the account is still only CONTACT_VERIFIED. Verifying identity is the next
+ * thing that changes what the user can do, so it gets a standing prompt.
+ *
+ * Returns copy only, with nowhere to send anyone, because there is nowhere to
+ * send them: `IDENTITY_VERIFIED` exists in the API's enum but no endpoint awards
+ * it and no module implements a document flow. So this states the value and
+ * stops. Give it an href the day that flow ships — not before, because a nudge
+ * that leads to a dead end is worse than one that leads nowhere on purpose.
+ */
+export function identityVerificationPrompt(
+  level: VerificationLevel | undefined,
+): { title: string; body: string } | null {
+  if (!level || meetsVerificationLevel(level, "IDENTITY_VERIFIED")) return null;
+
+  return {
+    title: "Verify your identity",
+    body: "A verified ID raises your trade limits and shows counterparties who they are dealing with. Opening soon.",
+  };
+}
+
 export function nextStepPrompt(nextStep: NextStep): { title: string; body: string } | null {
   switch (nextStep) {
     case "CHOOSE_USERNAME":

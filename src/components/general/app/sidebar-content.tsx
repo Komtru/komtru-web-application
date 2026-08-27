@@ -8,7 +8,7 @@ import { ProfileAvatar } from "@/components/general/app/profile-avatar";
 import { VerificationChip } from "@/components/general/app/verification-chip";
 import { Button } from "@/components/ui/button";
 import { centerAction, customerTabs, drawerNav, isTabActive } from "@/config/navigation";
-import { nextStepPrompt } from "@/helpers/auth";
+import { identityVerificationPrompt, nextStepPrompt } from "@/helpers/auth";
 import { useAuthStore } from "@/store/auth.store";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +56,12 @@ export function SidebarIdentity() {
 }
 
 /**
- * The one unfinished-setup nudge, or nothing.
+ * The one nudge, or nothing.
+ *
+ * At most one shows at a time, and unfinished setup wins: `nextStep` names
+ * something that blocks the user today, while identity verification is the next
+ * thing worth doing after that. Stacking both would make the more urgent one
+ * easier to ignore.
  *
  * `ADD_SECOND_CHANNEL` is not a link to settings: which channel is missing is a
  * question only `/me/emails` and `/me/phones` can answer, so the prompt opens
@@ -70,9 +75,30 @@ export function SidebarPrompt({
   onAddChannel: () => void;
 }) {
   const nextStep = useAuthStore((state) => state.nextStep);
+  // `me`, not `user`: `setMe` copies only `username` and `status` across, so
+  // `user.verificationLevel` is whatever the session was issued with and does
+  // not move when the account is verified. This prompt has to disappear the
+  // moment that happens.
+  const me = useAuthStore((state) => state.me);
 
   const prompt = nextStepPrompt(nextStep);
-  if (!prompt) return null;
+
+  if (!prompt) {
+    // Onboarding is done. The account is still short of IDENTITY_VERIFIED, and
+    // this is where that gets said — informational, with nothing to tap, since
+    // no verification flow exists to tap through to yet.
+    const identity = identityVerificationPrompt(me?.verificationLevel);
+    if (!identity) return null;
+
+    return (
+      <div className={cn(PROMPT_CLASS, "border-kumtru-info/30 bg-kumtru-info-soft")}>
+        <p className="text-xs font-semibold text-kumtru-info-on-soft">{identity.title}</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-kumtru-info-on-soft/80">
+          {identity.body}
+        </p>
+      </div>
+    );
+  }
 
   const body = (
     <>
