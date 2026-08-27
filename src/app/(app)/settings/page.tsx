@@ -12,6 +12,7 @@ import {
   SettingsRow,
   SettingsToggle,
 } from "@/components/general/app/settings-group";
+import { SocialLoginsGroup } from "@/components/general/app/social-logins-group";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -50,7 +51,9 @@ export default function SettingsPage() {
               {user?.username ? `@${user.username}` : "No username yet"}
             </p>
           </div>
-          {user ? <VerificationChip level={user.verificationLevel} className="ms-auto" /> : null}
+          {/* `me`, not `user` — same reason as the passport hero: `setMe` does not
+              copy `verificationLevel` across, so the session's copy goes stale. */}
+          {me ? <VerificationChip level={me.verificationLevel} className="ms-auto" /> : null}
         </div>
 
         <Button asChild variant="secondary" size="sm" className="mt-3.5 w-full">
@@ -92,6 +95,11 @@ export default function SettingsPage() {
         />
         <SettingsRow label="Trusted devices" trailing={<SettingsChevron />} />
       </SettingsGroup>
+
+      {/* Sits after Security because that is what it is: another way into the
+          account. Renders nothing when the deployment has no social providers
+          configured, so it never becomes an empty heading. */}
+      <SocialLoginsGroup />
 
       <SettingsGroup label="Notifications">
         <SettingsRow

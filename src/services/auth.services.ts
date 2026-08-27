@@ -19,6 +19,7 @@ import type {
   SocialAuthorizeResult,
   SocialCallbackPayload,
   SocialCallbackResult,
+  SocialIdentityRow,
   StepUpChallenge,
   UpdateProfilePayload,
   UserProfile,
@@ -45,6 +46,7 @@ export const authKeys = {
   all: ["auth"] as const,
   me: () => [...authKeys.all, "me"] as const,
   providers: () => [...authKeys.all, "providers"] as const,
+  socialIdentities: () => [...authKeys.all, "social-identities"] as const,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -223,6 +225,27 @@ export function useSocialAuthorize() {
       const response = await http.get<IResponse<SocialAuthorizeResult>>({
         url: `auth/social/${provider}/authorize`,
         query: { mode, redirectUri },
+      });
+      return response.data;
+    },
+  });
+}
+
+/**
+ * Which providers are already attached to this account.
+ *
+ * Read on the settings screen so a provider is offered as "Connect" or shown as
+ * already connected, rather than offered twice — the API rejects a second
+ * identity for the same provider (`REJECT_PROVIDER_ALREADY_LINKED`), and finding
+ * that out after a round trip through Google is a poor way to learn it.
+ */
+export function useSocialIdentities(enabled = true) {
+  return useQuery<SocialIdentityRow[]>({
+    queryKey: authKeys.socialIdentities(),
+    enabled,
+    queryFn: async () => {
+      const response = await http.get<IResponse<SocialIdentityRow[]>>({
+        url: "me/social-identities",
       });
       return response.data;
     },
