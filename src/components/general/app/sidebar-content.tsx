@@ -27,7 +27,6 @@ import { cn } from "@/lib/utils";
 
 /** Avatar, name, handle and verification level. */
 export function SidebarIdentity() {
-  const user = useAuthStore((state) => state.user);
   const me = useAuthStore((state) => state.me);
 
   const displayName =
@@ -36,7 +35,7 @@ export function SidebarIdentity() {
     "";
   // Falls back through what the API actually guarantees: a username may be null
   // until it is chosen, but `publicId` always exists.
-  const heading = displayName || user?.username || user?.publicId || "Your account";
+  const heading = displayName || me?.username || me?.publicId || "Your account";
 
   return (
     <>
@@ -44,8 +43,8 @@ export function SidebarIdentity() {
         <ProfileAvatar url={me?.profile?.avatarUrl} name={heading} size="lg" />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{heading}</p>
-          {user?.username ? (
-            <p className="truncate text-xs text-kumtru-slate-500">@{user.username}</p>
+          {me?.username ? (
+            <p className="truncate text-xs text-kumtru-slate-500">@{me.username}</p>
           ) : null}
         </div>
       </div>

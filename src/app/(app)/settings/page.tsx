@@ -25,7 +25,6 @@ import { useAuthStore } from "@/store/auth.store";
  */
 export default function SettingsPage() {
   const { resolvedTheme, setTheme } = useTheme();
-  const user = useAuthStore((state) => state.user);
   const me = useAuthStore((state) => state.me);
 
   // Falls back through what the API actually guarantees. A profile name is
@@ -33,7 +32,7 @@ export default function SettingsPage() {
   const displayName =
     me?.profile?.displayName ||
     [me?.profile?.firstName, me?.profile?.lastName].filter(Boolean).join(" ") ||
-    user?.username ||
+    me?.username ||
     "Your account";
   const avatarUrl = me?.profile?.avatarUrl ?? null;
   const isDark = resolvedTheme === "dark";
@@ -48,11 +47,9 @@ export default function SettingsPage() {
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold">{displayName}</p>
             <p className="truncate text-[11px] text-kumtru-slate-500">
-              {user?.username ? `@${user.username}` : "No username yet"}
+              {me?.username ? `@${me.username}` : "No username yet"}
             </p>
           </div>
-          {/* `me`, not `user` — same reason as the passport hero: `setMe` does not
-              copy `verificationLevel` across, so the session's copy goes stale. */}
           {me ? <VerificationChip level={me.verificationLevel} className="ms-auto" /> : null}
         </div>
 

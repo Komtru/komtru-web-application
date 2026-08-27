@@ -15,12 +15,11 @@ import { useAuthStore } from "@/store/auth.store";
  * figures would be worse than one that displays none.
  */
 export default function PassportPage() {
-  const user = useAuthStore((state) => state.user);
   const me = useAuthStore((state) => state.me);
   const displayName =
     me?.profile?.displayName ||
     [me?.profile?.firstName, me?.profile?.lastName].filter(Boolean).join(" ") ||
-    user?.username ||
+    me?.username ||
     "Your passport";
 
   return (
