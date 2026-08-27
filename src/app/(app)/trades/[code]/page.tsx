@@ -54,7 +54,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 export default function TradeDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
-  const viewerId = useAuthStore((state) => state.user?.userId);
+  const viewerId = useAuthStore((state) => state.me?.userId);
 
   const { data: trade, isLoading, isError, error, refetch } = useTradeByCode(params.code);
 

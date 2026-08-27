@@ -40,13 +40,34 @@ export const useAuthStore = create<AuthStore>()(
 
       setUser: (user) => set({ user }),
 
-      // `GET /me` recomputes `nextStep`, and it is the freshest source of it.
+      /**
+       * `GET /me` recomputes `nextStep`, and it is the freshest source of it.
+       *
+       * It is also the freshest source of every field the session's smaller
+       * `user` block duplicates, so all of them are copied across — not just
+       * `username` and `status`. Syncing a subset is what let
+       * `user.verificationLevel` sit at whatever the session was minted with
+       * while `me.verificationLevel` moved on: two fields with one name and
+       * different answers, and screens picked the wrong one.
+       *
+       * `MeResult` is a superset of `UserSummary`, so this is a total mapping
+       * rather than a best-effort merge. Add a field to `UserSummary` and it
+       * belongs here too.
+       */
       setMe: (me: MeResult) =>
         set((state) => ({
           me,
           nextStep: me.nextStep,
           user: state.user
-            ? { ...state.user, username: me.username, status: me.status }
+            ? {
+                ...state.user,
+                userId: me.userId,
+                publicId: me.publicId,
+                username: me.username,
+                status: me.status,
+                verificationLevel: me.verificationLevel,
+                memberSince: me.memberSince,
+              }
             : state.user,
         })),
 

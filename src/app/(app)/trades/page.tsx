@@ -29,7 +29,7 @@ function viewerRoleOf(trade: ITrade, viewerId: string | undefined) {
  * `SafetyCallout` stays underneath everything, same as before.
  */
 export default function TradesPage() {
-  const viewerId = useAuthStore((state) => state.user?.userId);
+  const viewerId = useAuthStore((state) => state.me?.userId);
   const { data, isLoading, isError, error, refetch } = useListTrades();
   const trades = data?.results ?? [];
 

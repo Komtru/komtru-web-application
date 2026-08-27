@@ -68,7 +68,6 @@ export default function EditProfilePage() {
   const { showToast } = useCustomToast();
 
   const me = useAuthStore((state) => state.me);
-  const user = useAuthStore((state) => state.user);
 
   const { mutateAsync: updateProfile } = useUpdateProfile();
   const { mutateAsync: createUploadUrl } = useCreateUploadUrl();
@@ -104,7 +103,7 @@ export default function EditProfilePage() {
   const fallbackName =
     profile?.displayName ||
     [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") ||
-    user?.username ||
+    me?.username ||
     "You";
 
   /**
