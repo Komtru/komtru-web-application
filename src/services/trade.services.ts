@@ -27,8 +27,25 @@ import http from "@/services/base";
  */
 export const tradeKeys = {
   all: ["trades"] as const,
-  list: (query?: ListTradesQueryInterface) => [...tradeKeys.all, "list", query ?? {}] as const,
-  detail: (tradeCode: string) => [...tradeKeys.all, "detail", tradeCode] as const,
+  /**
+   * Every list query, without the details.
+   *
+   * Exists because the realtime sync needs to refresh the lists while KEEPING the detail entry it has
+   * just written from a socket frame — invalidating `all` would mark that fresh entry stale and refetch
+   * the exact body the socket had already delivered.
+   */
+  lists: () => [...tradeKeys.all, "list"] as const,
+  list: (query?: ListTradesQueryInterface) => [...tradeKeys.lists(), query ?? {}] as const,
+  /**
+   * Normalised, so one trade is one cache entry.
+   *
+   * A code reaches this from three directions — a route param someone may have typed by hand, a mutation
+   * response, and a realtime frame — and only the last two are guaranteed canonical. Without the
+   * uppercase, `/trades/kmt-7398512-ng` would read and write a different entry than the socket push
+   * writes, so that page would be correct on load and then never update again. The API uppercases the
+   * code on its side too, so the fetch itself was always fine; this is about the key.
+   */
+  detail: (tradeCode: string) => [...tradeKeys.all, "detail", tradeCode.trim().toUpperCase()] as const,
 };
 
 export function useListTrades(query?: ListTradesQueryInterface) {
