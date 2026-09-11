@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { FileCheck, ShieldAlert, Truck, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileCheck, ShieldAlert, Truck, XCircle, Info, Building2 } from "lucide-react";
 
 import { StickyActionBar } from "@/components/general/app/sticky-action-bar";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,14 @@ import {
 import { FloatingLabelInput } from "@/components/ui/floating-label-input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toErrorMessage } from "@/helpers/errors";
 import { formatMoney } from "@/helpers/numbers";
 import { isCapacityExceededError } from "@/helpers/tradeCapacity";
@@ -29,6 +37,10 @@ import {
   useRaiseDispute,
   useShipTrade,
 } from "@/services/trade.services";
+import {
+  useAvailableCouriers,
+  useRequestCourierPackage,
+} from "@/services/logistics.services";
 
 type ActionKey = "accept" | "fund" | "ship" | "confirm" | "dispute" | "cancel";
 
@@ -103,7 +115,15 @@ function getAvailableActions(trade: ITrade, viewerId: string | undefined): Avail
   return actions;
 }
 
-export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: string | undefined }) {
+export function TradeActions({
+  trade,
+  viewerId,
+  openShipModalSignal,
+}: {
+  trade: ITrade;
+  viewerId: string | undefined;
+  openShipModalSignal?: number;
+}) {
   const { showToast } = useCustomToast();
 
   const accept = useAcceptTrade();
@@ -113,14 +133,29 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
   const ship = useShipTrade();
   const dispute = useRaiseDispute();
 
+  const { data: couriers = [], isLoading: isLoadingCouriers } = useAvailableCouriers();
+  const requestCourierPackage = useRequestCourierPackage();
+
   const [acceptOpen, setAcceptOpen] = useState(false);
 
   const [shipOpen, setShipOpen] = useState(false);
+  const [shipMode, setShipMode] = useState<"company" | "manual">("company");
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [courier, setCourier] = useState("");
   const [tracking, setTracking] = useState("");
 
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
+
+  // Re-open ship modal when external signal fires (e.g. from rejection banner)
+  useEffect(() => {
+    if (openShipModalSignal && openShipModalSignal > 0) {
+      setSelectedCompanyId("");
+      setCourier("");
+      setTracking("");
+      setShipOpen(true);
+    }
+  }, [openShipModalSignal]);
 
   const actions = getAvailableActions(trade, viewerId);
   if (actions.length === 0) return null;
@@ -149,7 +184,7 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
     }
   }
 
-  function handleShip() {
+  function handleManualShip() {
     if (!courier.trim() || ship.isPending) return;
     ship.mutate(
       { tradeCode: trade.tradeCode, courier: courier.trim(), tracking: tracking.trim() || undefined },
@@ -161,6 +196,25 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
           showToast({ title: "Marked as shipped", type: "success" });
         },
         onError: onError("Couldn't mark this trade as shipped"),
+      },
+    );
+  }
+
+  function handleCompanyShip() {
+    if (!selectedCompanyId || requestCourierPackage.isPending) return;
+    requestCourierPackage.mutate(
+      { tradeCode: trade.tradeCode, companyId: selectedCompanyId },
+      {
+        onSuccess: () => {
+          setShipOpen(false);
+          setSelectedCompanyId("");
+          showToast({
+            title: "Pickup Requested",
+            description: "The logistics partner has been notified to pick up the package.",
+            type: "success",
+          });
+        },
+        onError: onError("Couldn't request courier pickup"),
       },
     );
   }
@@ -258,11 +312,6 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
         })}
       </StickyActionBar>
 
-      {/* Accepting is the moment these terms start governing the trade, and the
-          second acceptance moves it to AGREED — so it gets a confirmation step
-          rather than firing on one tap on a scrolling page. The terms themselves
-          are restated here: the card on the page behind this dialog is what the
-          user is agreeing to, and it should not have to be remembered. */}
       <Dialog open={acceptOpen} onOpenChange={setAcceptOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
@@ -323,40 +372,119 @@ export function TradeActions({ trade, viewerId }: { trade: ITrade; viewerId: str
       </Dialog>
 
       <Dialog open={shipOpen} onOpenChange={setShipOpen}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>Mark as Shipped</DialogTitle>
+            <DialogTitle>Ship Item</DialogTitle>
             <DialogDescription>
-              Tell the buyer who is carrying it, so they can track it to delivery.
+              Choose a verified logistics partner or arrange delivery manually.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3.5">
-            <FloatingLabelInput
-              label="Courier"
-              required
-              value={courier}
-              onChange={(event) => setCourier(event.target.value)}
-              placeholder=" "
-            />
-            <FloatingLabelInput
-              label="Tracking number (optional)"
-              value={tracking}
-              onChange={(event) => setTracking(event.target.value)}
-              placeholder=" "
-            />
-          </div>
+          <Tabs
+            value={shipMode}
+            onValueChange={(val) => setShipMode(val as "company" | "manual")}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="company" className="text-xs">
+                <Building2 className="mr-1.5 size-3.5" />
+                Verified Courier
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="text-xs">
+                <Truck className="mr-1.5 size-3.5" />
+                Arrange My Own
+              </TabsTrigger>
+            </TabsList>
 
-          <DialogFooter>
-            <Button
-              size="lg"
-              className="w-full"
-              disabled={!courier.trim() || ship.isPending}
-              onClick={handleShip}
-            >
-              {ship.isPending ? <Spinner /> : "Confirm Shipment"}
-            </Button>
-          </DialogFooter>
+            <TabsContent value="company" className="mt-3 space-y-3.5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-kumtru-slate-600">
+                  Select Logistics Company
+                </label>
+                {isLoadingCouriers ? (
+                  <div className="flex h-10 items-center justify-center rounded-md border border-input">
+                    <Spinner size="sm" className="text-kumtru-blue" />
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedCompanyId}
+                    onValueChange={setSelectedCompanyId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Choose a verified courier partner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {couriers.length === 0 ? (
+                        <div className="p-2 text-center text-xs text-muted-foreground">
+                          No active couriers available.
+                        </div>
+                      ) : (
+                        couriers.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md bg-secondary/80 p-2.5 text-xs text-kumtru-slate-600">
+                <Info className="mt-0.5 size-3.5 shrink-0 text-kumtru-blue" />
+                <span>
+                  Shipping fee is arranged directly with the courier. Once requested, the courier will be dispatched for pickup.
+                </span>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  size="lg"
+                  className="w-full"
+                  disabled={!selectedCompanyId || requestCourierPackage.isPending}
+                  onClick={handleCompanyShip}
+                >
+                  {requestCourierPackage.isPending ? <Spinner /> : "Request Courier Pickup"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="manual" className="mt-3 space-y-3.5">
+              <div className="space-y-3.5">
+                <FloatingLabelInput
+                  label="Courier Name"
+                  required
+                  value={courier}
+                  onChange={(event) => setCourier(event.target.value)}
+                  placeholder=" "
+                />
+                <FloatingLabelInput
+                  label="Tracking Number (optional)"
+                  value={tracking}
+                  onChange={(event) => setTracking(event.target.value)}
+                  placeholder=" "
+                />
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md bg-secondary/80 p-2.5 text-xs text-kumtru-slate-600">
+                <Info className="mt-0.5 size-3.5 shrink-0 text-kumtru-slate-500" />
+                <span>
+                  You are arranging transport directly. The buyer will use the details provided above to track shipment.
+                </span>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  size="lg"
+                  className="w-full"
+                  disabled={!courier.trim() || ship.isPending}
+                  onClick={handleManualShip}
+                >
+                  {ship.isPending ? <Spinner /> : "Confirm Shipment"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

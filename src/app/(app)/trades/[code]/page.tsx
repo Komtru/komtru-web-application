@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FileText, Image as ImageIcon, StickyNote } from "lucide-react";
+import { FileText, Image as ImageIcon, StickyNote, Truck, XCircle, RotateCcw } from "lucide-react";
 
 import { ScreenHeader } from "@/components/general/app/screen-header";
 import { InitialsAvatar } from "@/components/general/app/initials-avatar";
@@ -9,6 +10,7 @@ import { SafetyCallout } from "@/components/general/safety-callout";
 import { TradeActions } from "@/components/general/trade/trade-actions";
 import { TradeTimeline } from "@/components/general/trade/trade-timeline";
 import { TrustStatusChip } from "@/components/general/trust-status-chip";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toErrorMessage } from "@/helpers/errors";
 import { formatMoney } from "@/helpers/numbers";
@@ -17,6 +19,7 @@ import { formatInZone, relativeFromNow } from "@/helpers/timezones";
 import { TradeRoleEnum, TradeStatusEnum, type ITradeEvidence } from "@/interfaces/trade";
 import { useAuthStore } from "@/store/auth.store";
 import { useTradeByCode } from "@/services/trade.services";
+import { useTradePackage } from "@/services/logistics.services";
 
 const EVIDENCE_ICON: Record<ITradeEvidence["kind"], typeof FileText> = {
   image: ImageIcon,
@@ -55,8 +58,17 @@ export default function TradeDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const viewerId = useAuthStore((state) => state.me?.userId);
+  const [shipModalSignal, setShipModalSignal] = useState(0);
 
   const { data: trade, isLoading, isError, error, refetch } = useTradeByCode(params.code);
+  const { data: pkg } = useTradePackage(params.code);
+
+  const isSeller = trade?.participants.some(
+    (p) => p.userId === viewerId && p.role === TradeRoleEnum.SELLER
+  );
+  const isRejectedPackage = pkg?.status === "REJECTED";
+  const hasActiveCourierRequest =
+    pkg && !isRejectedPackage && ["REQUESTED", "ACCEPTED", "PICKED_UP", "PACKAGED"].includes(pkg.status);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -93,6 +105,62 @@ export default function TradeDetailPage() {
                 <p className="mt-1 text-xs text-kumtru-slate-500">{trade.subject.description}</p>
               ) : null}
             </div>
+
+            {/* Courier Rejection Alert Banner (Spec §6) */}
+            {isRejectedPackage && isSeller ? (
+              <div className="rounded-kumtru-md border border-kumtru-risk/30 bg-kumtru-risk-soft p-3.5 text-xs text-foreground space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <XCircle className="mt-0.5 size-4 shrink-0 text-kumtru-risk" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-kumtru-risk">
+                      Courier Request Declined {pkg.companyName ? `by ${pkg.companyName}` : ""}
+                    </p>
+                    <p className="mt-1 text-kumtru-slate-600">
+                      Reason: <span className="font-medium text-foreground">{pkg.rejectionReason ?? "Courier unable to service request."}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-kumtru-risk/40 text-kumtru-risk hover:bg-kumtru-risk/10 gap-1.5 h-8 text-xs font-semibold"
+                    onClick={() => setShipModalSignal((prev) => prev + 1)}
+                  >
+                    <RotateCcw className="size-3.5" />
+                    Choose Another Courier or Self-Arrange
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Active Courier Pickup Banner */}
+            {hasActiveCourierRequest && pkg ? (
+              <div className="rounded-kumtru-md border border-kumtru-blue/20 bg-kumtru-blue-soft/50 p-3.5 text-xs text-foreground flex items-start gap-2.5">
+                <Truck className="mt-0.5 size-4 shrink-0 text-kumtru-blue" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-kumtru-blue">
+                      Logistics Pickup {humanizeToken(pkg.status)}
+                    </p>
+                    <span className="rounded-full bg-kumtru-blue/15 px-2 py-0.5 text-[10.5px] font-semibold text-kumtru-blue">
+                      {pkg.companyName ?? "Verified Courier"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-kumtru-slate-600 leading-relaxed">
+                    {pkg.status === "REQUESTED" &&
+                      "Pickup request has been sent to the logistics company. Waiting for courier acceptance."}
+                    {pkg.status === "ACCEPTED" &&
+                      "Courier has accepted the request and is preparing for pickup."}
+                    {pkg.status === "PICKED_UP" &&
+                      "Courier has collected the package from the seller."}
+                    {pkg.status === "PACKAGED" &&
+                      "Package has been verified and processed for transit."}
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             <SectionCard title="Participants">
               <div className="space-y-3">
@@ -231,7 +299,11 @@ export default function TradeDetailPage() {
             ) : null}
           </div>
 
-          <TradeActions trade={trade} viewerId={viewerId} />
+          <TradeActions
+            trade={trade}
+            viewerId={viewerId}
+            openShipModalSignal={shipModalSignal}
+          />
         </>
       )}
     </div>
