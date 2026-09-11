@@ -68,7 +68,9 @@ export default function TradeDetailPage() {
   );
   const isRejectedPackage = pkg?.status === "REJECTED";
   const hasActiveCourierRequest =
-    pkg && !isRejectedPackage && ["REQUESTED", "ACCEPTED", "PICKED_UP", "PACKAGED"].includes(pkg.status);
+    pkg &&
+    !isRejectedPackage &&
+    ["REQUESTED", "ACCEPTED", "PICKED_UP", "PACKAGED", "SHIPPED", "DELIVERED"].includes(pkg.status);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -157,6 +159,10 @@ export default function TradeDetailPage() {
                       "Courier has collected the package from the seller."}
                     {pkg.status === "PACKAGED" &&
                       "Package has been verified and processed for transit."}
+                    {pkg.status === "SHIPPED" &&
+                      `Courier has dispatched the package.${pkg.trackingNumber ? ` Tracking Number: ${pkg.trackingNumber}` : ""}`}
+                    {pkg.status === "DELIVERED" &&
+                      "Package has been delivered by the courier. Buyer can now inspect and confirm."}
                   </p>
                 </div>
               </div>
@@ -303,6 +309,7 @@ export default function TradeDetailPage() {
             trade={trade}
             viewerId={viewerId}
             openShipModalSignal={shipModalSignal}
+            activePackage={pkg}
           />
         </>
       )}

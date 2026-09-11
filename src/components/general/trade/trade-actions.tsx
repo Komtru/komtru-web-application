@@ -42,6 +42,8 @@ import {
   useRequestCourierPackage,
 } from "@/services/logistics.services";
 
+import type { ILogisticsPackage } from "@/interfaces/logistics";
+
 type ActionKey = "accept" | "fund" | "ship" | "confirm" | "dispute" | "cancel";
 
 interface AvailableAction {
@@ -62,7 +64,11 @@ interface AvailableAction {
  * `DRAFT` appears only in the cancel set. No endpoint creates a trade in it —
  * `POST /trades` goes straight to OPEN — so it is accounted for, not expected.
  */
-function getAvailableActions(trade: ITrade, viewerId: string | undefined): AvailableAction[] {
+function getAvailableActions(
+  trade: ITrade,
+  viewerId: string | undefined,
+  activePackage?: ILogisticsPackage | null
+): AvailableAction[] {
   const viewer = trade.participants.find((participant) => participant.userId === viewerId);
   if (!viewer) return [];
 
@@ -96,7 +102,19 @@ function getAvailableActions(trade: ITrade, viewerId: string | undefined): Avail
     actions.push({ key: "fund", label: "Fund Escrow" });
   }
 
-  if (trade.status === TradeStatusEnum.PROTECTED && viewer.role === TradeRoleEnum.SELLER) {
+  // Only show "Mark as Shipped" if seller hasn't handed over fulfilment to an active courier package
+  const hasActiveCourier =
+    activePackage &&
+    activePackage.status !== "REJECTED" &&
+    ["REQUESTED", "ACCEPTED", "PICKED_UP", "PACKAGED", "SHIPPED", "DELIVERED"].includes(
+      activePackage.status
+    );
+
+  if (
+    trade.status === TradeStatusEnum.PROTECTED &&
+    viewer.role === TradeRoleEnum.SELLER &&
+    !hasActiveCourier
+  ) {
     actions.push({ key: "ship", label: "Mark as Shipped" });
   }
 
@@ -119,10 +137,12 @@ export function TradeActions({
   trade,
   viewerId,
   openShipModalSignal,
+  activePackage,
 }: {
   trade: ITrade;
   viewerId: string | undefined;
   openShipModalSignal?: number;
+  activePackage?: ILogisticsPackage | null;
 }) {
   const { showToast } = useCustomToast();
 
