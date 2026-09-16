@@ -7,6 +7,8 @@ agreement is met.
 Seller and internal (TrustOps) surfaces live in their own apps — nothing in this repo should grow a
 seller shop, listings manager, or payouts screen.
 
+
+
 - **App name / slug:** Kumtru / `kumtru`
 - **Dev port:** `3100`
 - **Backend:** `kumtru-backend-apis` on `:3000`, mounted at `/v1`
